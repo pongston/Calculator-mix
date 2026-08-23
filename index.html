@@ -29,10 +29,23 @@
         </div>
         <div class="flex flex-col items-end text-right gap-2">
           <i data-lucide="calculator" class="w-6 h-6 hidden sm:block" style="color: #78766e;"></i>
-          <!-- Export PDF Button -->
-          <button id="export-pdf-btn" onclick="exportToPDF()" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 shadow-sm transition-all hover:bg-stone-800 hover:text-white" style="border-color: #23211d; color: #f5f3ee; background: #23211d;" data-html2pdf-ignore="true">
-            <i data-lucide="download" class="w-4 h-4"></i> Export PDF
-          </button>
+          
+          <div class="flex items-center gap-2" data-html2pdf-ignore="true">
+            <!-- Save Button -->
+            <button id="save-btn" onclick="saveData()" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 shadow-sm transition-all hover:bg-stone-100" style="border-color: #23211d; color: #23211d; background: #ffffff;">
+              <i data-lucide="save" class="w-4 h-4"></i> บันทึกข้อมูล
+            </button>
+            
+            <!-- Export PDF Button -->
+            <button id="export-pdf-btn" onclick="exportToPDF()" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 shadow-sm transition-all hover:bg-stone-800 hover:text-white" style="border-color: #23211d; color: #f5f3ee; background: #23211d;">
+              <i data-lucide="download" class="w-4 h-4"></i> Export PDF
+            </button>
+          </div>
+          
+          <!-- Save Status Message -->
+          <span id="save-status" class="text-xs font-semibold hidden" style="color: #c1502e;">
+            บันทึกข้อมูลสำเร็จแล้ว!
+          </span>
         </div>
       </div>
 
@@ -137,14 +150,16 @@
       C: { label: "C", desc: "ลดวัตถุดิบทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
     };
 
-    // Application State
-    let currentGroup = "A";
-    let nextId = 4;
-    let rows = [
+    const DEFAULT_ROWS = [
       { id: 1, orderNo: "73593250", cement: 378, rock: 1080, sand: 855, water: 148, admix: 4800, admix2: 5800, flyash: 20, air: 0, qty: 18 },
       { id: 2, orderNo: "30022121", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
       { id: 3, orderNo: "83135901", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
     ];
+
+    // Load initial state from LocalStorage if available
+    let currentGroup = localStorage.getItem("mix_design_group") || "A";
+    let rows = JSON.parse(localStorage.getItem("mix_design_rows")) || DEFAULT_ROWS;
+    let nextId = rows.length > 0 ? Math.max(...rows.map(r => r.id)) + 1 : 1;
 
     // Helper functions
     function num(v) {
@@ -175,6 +190,18 @@
       MATERIAL_COLS.forEach((c) => (t[c.key] = 0));
       results.forEach((r) => MATERIAL_COLS.forEach((c) => (t[c.key] += r[c.key])));
       return t;
+    }
+
+    // Save Data Function
+    function saveData() {
+      localStorage.setItem("mix_design_group", currentGroup);
+      localStorage.setItem("mix_design_rows", JSON.stringify(rows));
+      
+      const statusEl = document.getElementById("save-status");
+      statusEl.classList.remove("hidden");
+      setTimeout(() => {
+        statusEl.classList.add("hidden");
+      }, 2000);
     }
 
     // Render Components
