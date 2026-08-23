@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mix Design Calculator - Korat Batching Plant</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- html2pdf.js CDN for PDF Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+<body style="background: #efece2; color: #23211d;">
+  <div class="min-h-screen w-full">
+    <div class="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-10" id="export-area">
+      
+      <!-- Header -->
+      <div class="flex items-start justify-between gap-4 mb-6 border-b-2 pb-4" style="border-color: #23211d;">
+        <div>
+          <div class="flex items-center gap-2" style="color: #c1502e;">
+            <i data-lucide="layers" class="w-4 h-4 stroke-[2.5]"></i>
+            <span class="text-xs font-bold tracking-[0.2em] uppercase">Korat Batching Plant</span>
+          </div>
+          <h1 class="text-3xl sm:text-4xl font-black tracking-tight mt-1" style="font-family: Georgia, 'Times New Roman', serif;">
+            Mix Design
+          </h1>
+          <p class="text-xs mt-1" style="color: #78766e;">คำนวณมิกซ์ By Pongston</p>
+        </div>
+        <div class="flex flex-col items-end text-right gap-2">
+          <i data-lucide="calculator" class="w-6 h-6 hidden sm:block" style="color: #78766e;"></i>
+          <!-- Export PDF Button -->
+          <button id="export-pdf-btn" onclick="exportToPDF()" class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 shadow-sm transition-all hover:bg-stone-800 hover:text-white" style="border-color: #23211d; color: #f5f3ee; background: #23211d;" data-html2pdf-ignore="true">
+            <i data-lucide="download" class="w-4 h-4"></i> Export PDF
+          </button>
+        </div>
+      </div>
+
+      <!-- Group selector -->
+      <div class="mb-6">
+        <div class="text-xs font-bold uppercase tracking-widest mb-2" style="color: #78766e;">
+          เลือกกลุ่มวัตถุดิบ / Group
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2" id="group-buttons">
+          <!-- Render Group Buttons via JS -->
+        </div>
+      </div>
+
+      <!-- Input table -->
+      <div class="mb-2 text-xs font-bold uppercase tracking-widest" style="color: #78766e;">
+        วัตถุดิบต่อหน่วย (kg) — แก้ไขได้
+      </div>
+      <div class="overflow-x-auto border-2 mb-4" style="border-color: #23211d; background: #ffffff;">
+        <table class="w-full text-sm" style="min-width: 920px;">
+          <thead>
+            <tr style="background: #23211d; color: #f5f3ee;">
+              <th class="text-left px-3 py-2 font-semibold sticky left-0" style="background: #23211d; min-width: 120px;">
+                เลขที่ Order
+              </th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Cement</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Rock</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Sand</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Water</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Admixture</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Admixture 2</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Fly Ash</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 90px;">Air</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 80px;">จำนวน</th>
+              <th class="px-2 py-2" style="min-width: 44px;" data-html2pdf-ignore="true"></th>
+            </tr>
+          </thead>
+          <tbody id="input-rows">
+            <!-- Render Input Rows via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <button id="add-row-btn" class="mb-8 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2" style="border-color: #23211d; color: #23211d; background: #ffffff;" data-html2pdf-ignore="true">
+        <i data-lucide="plus" class="w-3.5 h-3.5"></i> เพิ่มแถว
+      </button>
+
+      <!-- Results table -->
+      <div id="result-title" class="mb-2 text-xs font-bold uppercase tracking-widest" style="color: #78766e;">
+        ผลลัพธ์ (Group A · 100%) — ตัน / kg
+      </div>
+      <div class="overflow-x-auto border-2" style="border-color: #23211d; background: #ffffff;">
+        <table class="w-full text-sm" style="min-width: 820px;">
+          <thead>
+            <tr style="background: #c1502e; color: #f5f3ee;">
+              <th class="text-left px-3 py-2 font-semibold sticky left-0" style="background: #c1502e; min-width: 120px;">
+                เลขที่ Order
+              </th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Cement ผลลัพธ์</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Rock ผลลัพธ์</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Sand ผลลัพธ์</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Water ผลลัพธ์</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Admixture ผลลัพธ์</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Admixture 2 ผลลัพธ์</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Fly Ash ผลลัพธ์</th>
+              <th class="text-right px-3 py-2 font-semibold" style="min-width: 100px;">Air ผลลัพธ์</th>
+            </tr>
+          </thead>
+          <tbody id="result-rows">
+            <!-- Render Result Rows via JS -->
+          </tbody>
+          <tfoot>
+            <tr id="result-totals" style="border-top: 2px solid #23211d; background: #f0eee6;">
+              <!-- Render Totals via JS -->
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <p class="text-xs mt-4" style="color: #a09d92;">
+        สูตร: ผลลัพธ์ = วัตถุดิบ × จำนวน × (1 − % หักของกลุ่ม) × 0.001 (แปลง กก. → ตัน) ·
+        น้ำไม่ถูกหักเปอร์เซ็นต์และไม่แปลงหน่วย · คอลัมน์ Air ใช้สูตรเดียวกับ Cement
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Configuration Data
+    const MATERIAL_COLS = [
+      { key: "cement", label: "Cement", unit: "kg" },
+      { key: "rock", label: "Rock", unit: "kg" },
+      { key: "sand", label: "Sand", unit: "kg" },
+      { key: "water", label: "Water", unit: "kg" },
+      { key: "admix", label: "Admixture", unit: "kg" },
+      { key: "admix2", label: "Admixture 2", unit: "kg" },
+      { key: "flyash", label: "Fly Ash", unit: "kg" },
+      { key: "air", label: "Air", unit: "kg" },
+    ];
+
+    const GROUPS = {
+      A: { label: "A", desc: "วัตถุดิบเต็ม 100%", reduce: 0 },
+      B: { label: "B", desc: "ลดวัตถุดิบทุกอย่างลง 3% (ยกเว้นน้ำ)", reduce: 0.03 },
+      C: { label: "C", desc: "ลดวัตถุดิบทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
+    };
+
+    // Application State
+    let currentGroup = "A";
+    let nextId = 4;
+    let rows = [
+      { id: 1, orderNo: "73593250", cement: 378, rock: 1080, sand: 855, water: 148, admix: 4800, admix2: 5800, flyash: 20, air: 0, qty: 18 },
+      { id: 2, orderNo: "30022121", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
+      { id: 3, orderNo: "83135901", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
+    ];
+
+    // Helper functions
+    function num(v) {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
+    }
+
+    // Calculation logics
+    function calculateResults() {
+      const reduce = GROUPS[currentGroup].reduce;
+      return rows.map((r) => {
+        const qty = num(r.qty);
+        const out = {};
+        MATERIAL_COLS.forEach((c) => {
+          const val = num(r[c.key]);
+          if (c.key === "water") {
+            out[c.key] = val * qty;
+          } else {
+            out[c.key] = val * qty * (1 - reduce) * 0.001;
+          }
+        });
+        return out;
+      });
+    }
+
+    function calculateTotals(results) {
+      const t = {};
+      MATERIAL_COLS.forEach((c) => (t[c.key] = 0));
+      results.forEach((r) => MATERIAL_COLS.forEach((c) => (t[c.key] += r[c.key])));
+      return t;
+    }
+
+    // Render Components
+    function renderGroups() {
+      const container = document.getElementById("group-buttons");
+      container.innerHTML = Object.entries(GROUPS).map(([key, g]) => {
+        const active = currentGroup === key;
+        const bg = active ? "#23211d" : "#ffffff";
+        const border = active ? "#c1502e" : "#d8d5cb";
+        const color = active ? "#f5f3ee" : "#23211d";
+        const descColor = active ? "#c8c5ba" : "#78766e";
+        const percentText = key === "A" ? "100%" : `-${(g.reduce * 100).toFixed(0)}%`;
+
+        return `
+          <button
+            onclick="setGroup('${key}')"
+            class="text-left px-4 py-3 border-2 transition-colors"
+            style="border-color: ${border}; background: ${bg}; color: ${color};"
+          >
+            <div class="flex items-baseline gap-2">
+              <span class="text-xl font-black" style="color: #c1502e;">${g.label}</span>
+              <span class="text-sm font-semibold">${percentText}</span>
+            </div>
+            <div class="text-xs mt-1" style="color: ${descColor};">${g.desc}</div>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function renderInputRows() {
+      const container = document.getElementById("input-rows");
+      container.innerHTML = rows.map((r, i) => {
+        const rowBg = i % 2 === 0 ? "#ffffff" : "#f7f5f0";
+        
+        const matInputs = MATERIAL_COLS.map((c) => `
+          <td class="px-2 py-1.5">
+            <input
+              type="number"
+              value="${r[c.key]}"
+              onchange="updateRow(${r.id}, '${c.key}', this.value)"
+              class="w-full bg-transparent outline-none text-right font-mono"
+              style="color: ${c.key === 'air' ? '#c1502e' : '#23211d'};"
+            />
+          </td>
+        `).join("");
+
+        return `
+          <tr style="background: ${rowBg}; border-top: 1px solid #e3e0d5;">
+            <td class="px-3 py-1.5 sticky left-0" style="background: ${rowBg};">
+              <input
+                value="${r.orderNo}"
+                onchange="updateRow(${r.id}, 'orderNo', this.value)"
+                class="w-full bg-transparent outline-none font-mono text-xs"
+                style="color: #23211d;"
+                placeholder="—"
+              />
+            </td>
+            ${matInputs}
+            <td class="px-2 py-1.5">
+              <input
+                type="number"
+                value="${r.qty}"
+                onchange="updateRow(${r.id}, 'qty', this.value)"
+                class="w-full bg-transparent outline-none text-right font-mono font-semibold"
+                style="color: #23211d;"
+              />
+            </td>
+            <td class="px-2 py-1.5 text-center" data-html2pdf-ignore="true">
+              <button onclick="removeRow(${r.id})" title="ลบแถว" style="color: #78766e;">
+                <i data-lucide="trash-2" class="w-[15px] h-[15px]"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function renderResults() {
+      const reduce = GROUPS[currentGroup].reduce;
+      const reduceText = currentGroup === "A" ? "100%" : `หัก ${(reduce * 100).toFixed(0)}%`;
+      document.getElementById("result-title").innerText = `ผลลัพธ์ (Group ${currentGroup} · ${reduceText}) — ตัน / kg`;
+
+      const results = calculateResults();
+      const totals = calculateTotals(results);
+
+      // Result Body
+      const container = document.getElementById("result-rows");
+      container.innerHTML = rows.map((r, i) => {
+        const rowBg = i % 2 === 0 ? "#ffffff" : "#f7f5f0";
+        const cols = MATERIAL_COLS.map((c) => `
+          <td class="px-3 py-1.5 text-right font-mono" style="color: #23211d;">
+            ${results[i][c.key].toFixed(3)}
+          </td>
+        `).join("");
+
+        return `
+          <tr style="background: ${rowBg}; border-top: 1px solid #e3e0d5;">
+            <td class="px-3 py-1.5 font-mono text-xs sticky left-0" style="background: ${rowBg};">
+              ${r.orderNo || "—"}
+            </td>
+            ${cols}
+          </tr>
+        `;
+      }).join("");
+
+      // Result Totals
+      const totalCols = MATERIAL_COLS.map((c) => `
+        <td class="px-3 py-2 text-right font-mono font-bold" style="color: #c1502e;">
+          ${totals[c.key].toFixed(3)}
+        </td>
+      `).join("");
+
+      document.getElementById("result-totals").innerHTML = `
+        <td class="px-3 py-2 font-bold text-xs uppercase sticky left-0" style="background: #f0eee6; color: #23211d;">
+          รวม / Total
+        </td>
+        ${totalCols}
+      `;
+    }
+
+    function render() {
+      renderGroups();
+      renderInputRows();
+      renderResults();
+      lucide.createIcons();
+    }
+
+    // Event Handlers
+    function setGroup(g) {
+      currentGroup = g;
+      render();
+    }
+
+    function updateRow(id, key, value) {
+      rows = rows.map((r) => (r.id === id ? { ...r, [key]: value } : r));
+      render();
+    }
+
+    function addRow() {
+      const blank = { id: nextId++, orderNo: "", qty: 0 };
+      MATERIAL_COLS.forEach((c) => (blank[c.key] = 0));
+      rows.push(blank);
+      render();
+    }
+
+    function removeRow(id) {
+      rows = rows.filter((r) => r.id !== id);
+      render();
+    }
+
+    // PDF Export Function
+    function exportToPDF() {
+      const element = document.getElementById('export-area');
+      const today = new Date().toISOString().slice(0, 10);
+      
+      const opt = {
+        margin:       [10, 10, 10, 10],
+        filename:     `Mix_Design_Group_${currentGroup}_${today}.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, logging: false },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+      };
+
+      // Generate PDF
+      html2pdf().set(opt).from(element).save();
+    }
+
+    document.getElementById("add-row-btn").addEventListener("click", addRow);
+
+    // Initial Load
+    render();
+  </script>
+</body>
+</html>
