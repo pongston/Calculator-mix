@@ -1,575 +1,351 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Mix Design — Pongston</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<style>
-  :root {
-    --ink: #23211d;
-    --paper: #efece2;
-    --card: #ffffff;
-    --rust: #c1502e;
-    --rust-light: #e8916b;
-    --muted: #78766e;
-    --faint: #a09d92;
-    --border: #d8d5cb;
-    --stripe: #f7f5f0;
-    --green: #2e7d46;
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--paper); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 60px; }
-  .header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; border-bottom:2px solid var(--ink); padding-bottom:16px; margin-bottom:20px; }
-  .eyebrow { display:flex; align-items:center; gap:6px; color:var(--rust); font-size:11px; font-weight:700; letter-spacing:.2em; text-transform:uppercase; }
-  h1 { font-family: Georgia, "Times New Roman", serif; font-size:32px; font-weight:900; margin:4px 0 2px; letter-spacing:-0.5px; }
-  .sub { font-size:12px; color:var(--muted); margin:0; }
-  .section-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.15em; color:var(--muted); margin:0 0 8px; }
-  .group-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:22px; }
-  .group-seg { display:inline-flex; border:2px solid var(--ink); }
-  .group-seg button { border:none; background:var(--card); color:var(--ink); font-weight:700; font-size:14px; padding:7px 14px; cursor:pointer; border-left:1px solid var(--ink); }
-  .group-seg button:first-child { border-left:none; }
-  .group-seg button.active { background:var(--ink); color:#f5f3ee; }
-  .group-seg button .pct { color: var(--rust); }
-  .group-seg button.active .pct { color: var(--rust-light); }
-  .group-desc { font-size:12px; color:var(--faint); }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mix Design - Korat Batching Plant</title>
 
-  table { width:100%; border-collapse:collapse; font-size:13.5px; }
-  .table-card { overflow-x:auto; border:2px solid var(--ink); background:var(--card); margin-bottom:16px; }
-  thead tr { background:var(--ink); color:#f5f3ee; }
-  thead.results-head tr { background:var(--rust); }
-  th { text-align:right; padding:8px 10px; font-weight:600; white-space:nowrap; }
-  th:first-child, td:first-child { text-align:left; position:sticky; left:0; }
-  td { padding:5px 8px; border-top:1px solid #e3e0d5; }
-  tbody tr:nth-child(even) td { background:var(--stripe); }
-  thead th:first-child { background:inherit; }
-  input[type=text], input[type=number] { width:100%; border:none; background:transparent; text-align:right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:13px; color:var(--ink); outline:none; }
-  input.orderno { text-align:left; font-size:12px; }
-  .totals-row td { border-top:2px solid var(--ink); background:#f0eee6; font-weight:700; color:var(--rust); }
-  .totals-row td:first-child { color: var(--ink); text-transform:uppercase; font-size:11px; }
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-  .btn { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:9px 16px; cursor:pointer; border:2px solid var(--ink); background:var(--card); color:var(--ink); }
-  .btn-dark { background:var(--ink); color:#f5f3ee; }
-  .btn-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
-  .icon-btn { background:none; border:none; cursor:pointer; color:var(--muted); padding:2px; display:flex; }
-
-  .adjust-card { border:2px solid var(--ink); background:var(--card); margin-bottom:22px; }
-  .adjust-toggle { display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer; user-select:none; }
-  .checkbox { width:19px; height:19px; border:2px solid var(--ink); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-  .checkbox.checked { background:var(--rust); }
-  .adjust-toggle .label { font-size:13.5px; font-weight:700; }
-  .chev { margin-left:auto; color:var(--muted); transition:transform .15s; }
-  .chev.open { transform:rotate(180deg); }
-  .adjust-body { padding:4px 16px 16px; border-top:2px solid var(--border); }
-  .adjust-grid { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
-  @media(min-width:720px){ .adjust-grid{ grid-template-columns: repeat(4, 1fr);} }
-  .field-label { font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:4px; }
-  select, .txt-input { width:100%; border:2px solid var(--border); padding:7px 8px; font-size:13px; background:#fff; color:var(--ink); }
-  .value-row { display:flex; gap:4px; }
-  .value-row select { flex-shrink:0; width:auto; }
-
-  .adj-list-wrap { margin-top:14px; overflow-x:auto; border:2px solid var(--border); }
-  .adj-list-wrap table { font-size:12px; min-width:520px; }
-  .adj-list-wrap thead tr { background:#f0eee6; color:var(--muted); }
-  .adj-list-wrap th { font-weight:700; }
-
-  .footnote { font-size:11px; color:var(--faint); margin-top:14px; line-height:1.5; }
-  .adjusted-cell { color: var(--rust) !important; font-weight:700; }
-  .toast { font-size:11px; }
-</style>
+  <style>
+    body { background-color: #efece2; -webkit-tap-highlight-color: transparent; }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  </style>
 </head>
 <body>
-<div class="wrap" id="app"></div>
+  <div id="root"></div>
 
-<script>
-const STORAGE_KEY = "mixdesign-state-v1";
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
 
-const MATERIAL_COLS = [
-  { key: "cement", label: "Cement" },
-  { key: "rock", label: "Rock" },
-  { key: "sand", label: "Sand" },
-  { key: "water", label: "Water" },
-  { key: "admix", label: "Admixture" },
-  { key: "admix2", label: "Admixture 2" },
-  { key: "flyash", label: "Fly Ash" },
-  { key: "air", label: "Air" },
-];
+    // Icon Wrapper Component for Lucide
+    const Icon = ({ name, size = 18, color, className = "", style = {} }) => {
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      }, [name]);
+      return <i data-lucide={name} className={className} style={{ width: size, height: size, color, display: 'inline-block', ...style }}></i>;
+    };
 
-const GROUPS = {
-  A: { label: "A", short: "100%", desc: "วัตถุดิบเต็ม 100%", reduce: 0 },
-  B: { label: "B", short: "-3%", desc: "ลดทุกอย่างลง 3% (ยกเว้นน้ำ)", reduce: 0.03 },
-  C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
-};
+    const MATERIAL_COLS = [
+      { key: "cement", label: "Cement" },
+      { key: "rock", label: "Rock" },
+      { key: "sand", label: "Sand" },
+      { key: "water", label: "Water" },
+      { key: "admix", label: "Admixture" },
+      { key: "admix2", label: "Admixture 2" },
+      { key: "flyash", label: "Fly Ash" },
+      { key: "air", label: "Air" },
+    ];
 
-let state = {
-  group: "A",
-  rows: [
-    { id: 1, orderNo: "73593250", cement: 378, rock: 1080, sand: 855, water: 148, admix: 4800, admix2: 5800, flyash: 20, air: 0, qty: 18 },
-    { id: 2, orderNo: "30022121", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
-    { id: 3, orderNo: "83135901", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
-  ],
-  adjustments: [],
-  showAdjust: false,
-  draft: { orderId: 1, material: "cement", sign: "add", value: "", qty: "" },
-  nextRowId: 4,
-  nextAdjId: 1,
-  saveState: "idle",
-  pdfState: "idle",
-};
+    const GROUPS = {
+      A: { label: "A", short: "100%", desc: "วัตถุดิบเต็ม 100%", reduce: 0 },
+      B: { label: "B", short: "-3%", desc: "ลดทุกอย่างลง 3% (ยกเว้นน้ำ)", reduce: 0.03 },
+      C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
+    };
 
-function num(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+    const STORAGE_KEY = "mixdesign-state-v1";
+    let nextRowId = 4;
+    let nextAdjId = 1;
 
-function computeBase(row) {
-  const reduce = GROUPS[state.group].reduce;
-  const qty = num(row.qty);
-  const out = {};
-  MATERIAL_COLS.forEach(c => {
-    const val = num(row[c.key]);
-    out[c.key] = c.key === "water" ? val * qty : val * qty * (1 - reduce) * 0.001;
-  });
-  return out;
-}
+    const seedRows = [
+      { id: 1, orderNo: "73593250", cement: 378, rock: 1080, sand: 855, water: 148, admix: 4800, admix2: 5800, flyash: 20, air: 0, qty: 18 },
+      { id: 2, orderNo: "30022121", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
+      { id: 3, orderNo: "83135901", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
+    ];
 
-function adjustmentContribution(orderId, materialKey) {
-  const reduce = GROUPS[state.group].reduce;
-  return state.adjustments
-    .filter(a => a.orderId === orderId && a.material === materialKey)
-    .reduce((sum, a) => {
-      const raw = materialKey === "water" ? a.value * a.qty : a.value * a.qty * (1 - reduce) * 0.001;
-      return sum + (a.sign === "reduce" ? -raw : raw);
-    }, 0);
-}
+    function num(v) {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
+    }
 
-function finalResult(row) {
-  const base = computeBase(row);
-  const out = {};
-  MATERIAL_COLS.forEach(c => { out[c.key] = base[c.key] + adjustmentContribution(row.id, c.key); });
-  return out;
-}
+    function MixDesignCalculator() {
+      const [group, setGroup] = useState("A");
+      const [rows, setRows] = useState(seedRows);
+      const [showAdjust, setShowAdjust] = useState(false);
+      const [adjustments, setAdjustments] = useState([]);
+      const [saveState, setSaveState] = useState("idle");
+      const [saveError, setSaveError] = useState("");
 
-function icon(name, size, extraAttrs) {
-  const icons = {
-    layers: '<path d="M12 2 2 7l10 5 10-5-10-5Z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>',
-    calc: '<rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="8" y2="18"/><line x1="12" y1="18" x2="12" y2="18"/><line x1="16" y1="18" x2="16" y2="18"/>',
-    plus: '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
-    trash: '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>',
-    chevron: '<polyline points="6 9 12 15 18 9"/>',
-    check: '<polyline points="20 6 9 17 4 12"/>',
-    save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
-    file: '<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z"/><polyline points="14 2 14 8 20 8"/>',
-  };
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size||16}" height="${size||16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" ${extraAttrs||""}>${icons[name]||""}</svg>`;
-}
+      const [draftOrderId, setDraftOrderId] = useState(null);
+      const [draftMaterial, setDraftMaterial] = useState(MATERIAL_COLS[0].key);
+      const [draftSign, setDraftSign] = useState("add");
+      const [draftValue, setDraftValue] = useState("");
+      const [draftQty, setDraftQty] = useState("");
 
-function render() {
-  const app = document.getElementById("app");
-  const g = GROUPS[state.group];
+      const reduce = GROUPS[group].reduce;
 
-  app.innerHTML = `
-    <div class="header">
-      <div>
-        <div class="eyebrow">${icon("layers",16)} Korat Batching Plant</div>
-        <h1>Mix Design</h1>
-        <p class="sub">คำนวณมิกซ์ By Pongston</p>
-      </div>
-      ${icon("calc",22)}
-    </div>
+      useEffect(() => {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (data.rows && data.rows.length) {
+              setRows(data.rows);
+              nextRowId = Math.max(...data.rows.map((r) => r.id)) + 1;
+            }
+            if (data.group) setGroup(data.group);
+            if (data.adjustments) {
+              setAdjustments(data.adjustments);
+              nextAdjId = data.adjustments.length ? Math.max(...data.adjustments.map((a) => a.id)) + 1 : 1;
+            }
+          }
+        } catch (e) {}
+      }, []);
 
-    <div class="group-row">
-      <span class="section-label" style="margin:0;">Group</span>
-      <div class="group-seg">
-        ${Object.entries(GROUPS).map(([key,gr]) => `
-          <button data-action="set-group" data-group="${key}" class="${state.group===key?'active':''}">
-            ${gr.label}. <span class="pct">${gr.short}</span>
-          </button>
-        `).join("")}
-      </div>
-      <span class="group-desc">${g.desc}</span>
-    </div>
+      useEffect(() => {
+        if (rows.length && draftOrderId === null) setDraftOrderId(rows[0].id);
+      }, [rows, draftOrderId]);
 
-    <p class="section-label">วัตถุดิบต่อหน่วย (kg) — แก้ไขได้</p>
-    <div class="table-card" id="inputTableWrap">
-      ${renderInputTable()}
-    </div>
-    <div class="btn-row" style="margin-bottom:22px;">
-      <button class="btn" id="addRowBtn">${icon("plus",14)} เพิ่มแถว</button>
-    </div>
+      const baseResults = useMemo(() => {
+        return rows.map((r) => {
+          const qty = num(r.qty);
+          const out = {};
+          MATERIAL_COLS.forEach((c) => {
+            const val = num(r[c.key]);
+            out[c.key] = c.key === "water" ? val * qty : val * qty * (1 - reduce) * 0.001;
+          });
+          return out;
+        });
+      }, [rows, reduce]);
 
-    <div class="adjust-card">
-      <div class="adjust-toggle" id="adjustToggle">
-        <span class="checkbox ${state.showAdjust?'checked':''}">${state.showAdjust?icon('check',12,'color="#fff"'):''}</span>
-        <span class="label">ปรับวัตถุดิบเพิ่มเติมรายออเดอร์ (แสดงรายละเอียด 3 หัวข้อ)</span>
-        <span class="chev ${state.showAdjust?'open':''}">${icon("chevron",16)}</span>
-      </div>
-      ${state.showAdjust ? renderAdjustPanel() : ""}
-    </div>
+      function adjustmentContribution(orderId, materialKey) {
+        return adjustments
+          .filter((a) => a.orderId === orderId && a.material === materialKey)
+          .reduce((sum, a) => {
+            const raw = materialKey === "water" ? a.value * a.qty : a.value * a.qty * (1 - reduce) * 0.001;
+            return sum + (a.sign === "reduce" ? -raw : raw);
+          }, 0);
+      }
 
-    <p class="section-label" id="resultsLabel">${resultsLabel()}</p>
-    <div class="table-card" id="resultsWrap">
-      ${renderResultsTable()}
-    </div>
+      const finalResults = useMemo(() => {
+        return rows.map((r, i) => {
+          const out = {};
+          MATERIAL_COLS.forEach((c) => {
+            out[c.key] = baseResults[i][c.key] + adjustmentContribution(r.id, c.key);
+          });
+          return out;
+        });
+      }, [baseResults, adjustments, reduce]);
 
-    <div class="btn-row" id="actionRow">
-      <button class="btn btn-dark" id="saveBtn">${icon("save",14)} ${saveLabel()}</button>
-      <button class="btn" id="pdfBtn">${icon("file",14)} ${pdfLabel()}</button>
-    </div>
+      const totals = useMemo(() => {
+        const t = {};
+        MATERIAL_COLS.forEach((c) => (t[c.key] = 0));
+        finalResults.forEach((r) => MATERIAL_COLS.forEach((c) => (t[c.key] += r[c.key])));
+        return t;
+      }, [finalResults]);
 
-    <p class="footnote">
-      สูตร: ผลลัพธ์ = วัตถุดิบ × จำนวน × (1 − % หักของกลุ่ม) × 0.001 (แปลง กก. → ตัน) · น้ำไม่ถูกหักเปอร์เซ็นต์และไม่แปลงหน่วย ·
-      คอลัมน์ Air ใช้สูตรเดียวกับ Cement · รายการปรับต่อออเดอร์จะถูกบวก/ลบเข้ากับผลลัพธ์ของวัตถุดิบนั้นโดยตรง
-    </p>
-  `;
+      function updateRow(id, key, value) {
+        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+      }
 
-  attachListeners();
-}
+      function addRow() {
+        const blank = { id: nextRowId++, orderNo: "", qty: 0 };
+        MATERIAL_COLS.forEach((c) => (blank[c.key] = 0));
+        setRows((prev) => [...prev, blank]);
+      }
 
-function saveLabel(){ return state.saveState==="saving" ? "กำลังบันทึก..." : state.saveState==="saved" ? "บันทึกแล้ว ✓" : "บันทึก"; }
-function pdfLabel(){ return state.pdfState==="working" ? "กำลังสร้าง PDF..." : state.pdfState==="done" ? "สร้าง PDF แล้ว ✓" : state.pdfState==="error" ? "สร้าง PDF ไม่สำเร็จ (ลองใหม่)" : "บันทึก PDF"; }
-function resultsLabel(){
-  const g = GROUPS[state.group];
-  return `ผลลัพธ์ (Group ${state.group} · ${g.short}) — ตัน / kg${state.adjustments.length ? " · รวมรายการปรับแล้ว" : ""}`;
-}
+      function removeRow(id) {
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        setAdjustments((prev) => prev.filter((a) => a.orderId !== id));
+      }
 
-function renderInputTable() {
-  return `
-    <table>
-      <thead><tr>
-        <th style="text-align:left;">เลขที่ Order</th>
-        ${MATERIAL_COLS.map(c=>`<th>${c.label}</th>`).join("")}
-        <th>จำนวน</th>
-        <th style="min-width:40px;"></th>
-      </tr></thead>
-      <tbody>
-        ${state.rows.map(r => `
-          <tr>
-            <td><input type="text" class="orderno" data-row="${r.id}" data-key="orderNo" value="${r.orderNo||''}" placeholder="—"/></td>
-            ${MATERIAL_COLS.map(c=>`<td><input type="number" data-row="${r.id}" data-key="${c.key}" value="${r[c.key]}" style="${c.key==='air'?'color:var(--rust)':''}"/></td>`).join("")}
-            <td><input type="number" data-row="${r.id}" data-key="qty" value="${r.qty}" style="font-weight:600;"/></td>
-            <td style="text-align:center;"><button class="icon-btn" data-action="remove-row" data-row="${r.id}" title="ลบแถว">${icon("trash",15)}</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
+      function addAdjustment() {
+        const v = num(draftValue);
+        const q = num(draftQty);
+        if (!draftOrderId || v === 0 || q === 0) return;
+        setAdjustments((prev) => [
+          ...prev,
+          { id: nextAdjId++, orderId: draftOrderId, material: draftMaterial, sign: draftSign, value: v, qty: q },
+        ]);
+        setDraftValue("");
+        setDraftQty("");
+      }
 
-function renderResultsTable() {
-  const totals = {}; MATERIAL_COLS.forEach(c=>totals[c.key]=0);
-  const rowsHtml = state.rows.map(r => {
-    const res = finalResult(r);
-    MATERIAL_COLS.forEach(c => totals[c.key]+=res[c.key]);
-    return `<tr>
-      <td>${r.orderNo || "—"}</td>
-      ${MATERIAL_COLS.map(c=>{
-        const adjusted = adjustmentContribution(r.id,c.key)!==0;
-        return `<td class="${adjusted?'adjusted-cell':''}" style="text-align:right; font-family:ui-monospace,monospace;">${res[c.key].toFixed(3)}</td>`;
-      }).join("")}
-    </tr>`;
-  }).join("");
+      function removeAdjustment(id) {
+        setAdjustments((prev) => prev.filter((a) => a.id !== id));
+      }
 
-  return `
-    <table>
-      <thead class="results-head"><tr>
-        <th style="text-align:left;">เลขที่ Order</th>
-        ${MATERIAL_COLS.map(c=>`<th>${c.label} ผลลัพธ์</th>`).join("")}
-      </tr></thead>
-      <tbody>
-        ${rowsHtml}
-        <tr class="totals-row">
-          <td>รวม / Total</td>
-          ${MATERIAL_COLS.map(c=>`<td style="text-align:right; font-family:ui-monospace,monospace;">${totals[c.key].toFixed(3)}</td>`).join("")}
-        </tr>
-      </tbody>
-    </table>
-  `;
-}
+      function handleSave() {
+        setSaveState("saving");
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows, group, adjustments }));
+          setSaveState("saved");
+          setTimeout(() => setSaveState("idle"), 1800);
+        } catch (e) {
+          setSaveError("บันทึกไม่สำเร็จ");
+          setSaveState("idle");
+        }
+      }
 
-function renderAdjustPanel() {
-  const orderOptions = state.rows.map((r,i)=>`<option value="${r.id}" ${state.draft.orderId===r.id?'selected':''}>${i+1}. ${r.orderNo || '(ไม่ระบุเลขที่)'}</option>`).join("");
-  const materialOptions = MATERIAL_COLS.map(c=>`<option value="${c.key}" ${state.draft.material===c.key?'selected':''}>${c.label}</option>`).join("");
-  const reduce = GROUPS[state.group].reduce;
+      function buildReportHTML() {
+        const groupInfo = GROUPS[group];
+        const rowsHtml = rows
+          .map((r) => {
+            const cells = MATERIAL_COLS.map((c) => `<td>${num(r[c.key])}</td>`).join("");
+            return `<tr><td>${r.orderNo || "—"}</td>${cells}<td>${r.qty}</td></tr>`;
+          }).join("");
+        const resultRowsHtml = rows
+          .map((r, i) => {
+            const cells = MATERIAL_COLS.map((c) => `<td>${finalResults[i][c.key].toFixed(3)}</td>`).join("");
+            return `<tr><td>${r.orderNo || "—"}</td>${cells}</tr>`;
+          }).join("");
+        const totalCells = MATERIAL_COLS.map((c) => `<td><b>${totals[c.key].toFixed(3)}</b></td>`).join("");
 
-  const listRows = state.adjustments.map(a=>{
-    const idx = state.rows.findIndex(r=>r.id===a.orderId);
-    const orderLabel = idx>=0 ? `${idx+1}. ${state.rows[idx].orderNo||'—'}` : '—';
-    const matLabel = MATERIAL_COLS.find(c=>c.key===a.material)?.label;
-    const raw = a.material==='water' ? a.value*a.qty : a.value*a.qty*(1-reduce)*0.001;
-    const signed = a.sign==='reduce' ? -raw : raw;
-    return `<tr>
-      <td style="font-family:ui-monospace,monospace;">${orderLabel}</td>
-      <td>${matLabel}</td>
-      <td style="text-align:right; font-family:ui-monospace,monospace; color:${a.sign==='reduce'?'var(--rust)':'var(--green)'}">${a.sign==='reduce'?'−':'+'}${a.value}</td>
-      <td style="text-align:right; font-family:ui-monospace,monospace;">${a.qty}</td>
-      <td style="text-align:right; font-family:ui-monospace,monospace; font-weight:600;">${signed.toFixed(3)}</td>
-      <td style="text-align:center;"><button class="icon-btn" data-action="remove-adj" data-id="${a.id}">${icon("trash",13)}</button></td>
-    </tr>`;
-  }).join("");
+        return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Report</title>
+        <style>body{font-family:sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #999;padding:6px;text-align:right;} th:first-child,td:first-child{text-align:left;} th{background:#23211d;color:#fff;}</style>
+        </head><body>
+        <h1>Mix Design — Korat Batching Plant</h1>
+        <p>Group ${groupInfo.label} (${groupInfo.desc}) | ${new Date().toLocaleString("th-TH")}</p>
+        <h3>วัตถุดิบต่อหน่วย</h3><table><tr><th>Order</th>${MATERIAL_COLS.map(c=>`<th>${c.label}</th>`).join("")}<th>จำนวน</th></tr>${rowsHtml}</table>
+        <h3>ผลลัพธ์ (ตัน/kg)</h3><table><tr><th>Order</th>${MATERIAL_COLS.map(c=>`<th>${c.label}</th>`).join("")}</tr>${resultRowsHtml}<tr><td><b>รวม</b></td>${totalCells}</tr></table>
+        </body></html>`;
+      }
 
-  return `
-    <div class="adjust-body">
-      <div class="adjust-grid">
-        <div>
-          <div class="field-label">1. เลขที่ออเดอร์</div>
-          <select id="draftOrder">${orderOptions}</select>
-        </div>
-        <div>
-          <div class="field-label">2. ชนิดวัตถุดิบ</div>
-          <select id="draftMaterial">${materialOptions}</select>
-        </div>
-        <div>
-          <div class="field-label">3. ค่า (กก.) / คิว</div>
-          <div class="value-row">
-            <select id="draftSign" style="color:${state.draft.sign==='reduce'?'var(--rust)':'var(--green)'}">
-              <option value="add" ${state.draft.sign==='add'?'selected':''}>เพิ่ม +</option>
-              <option value="reduce" ${state.draft.sign==='reduce'?'selected':''}>ลด −</option>
-            </select>
-            <input class="txt-input" type="number" id="draftValue" placeholder="ค่า" value="${state.draft.value}" style="font-family:ui-monospace,monospace;"/>
-            <input class="txt-input" type="number" id="draftQty" placeholder="คิว" value="${state.draft.qty}" style="font-family:ui-monospace,monospace;"/>
+      function handlePrint() {
+        const html = buildReportHTML();
+        const blob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `mix-design-report-${Date.now()}.html`;
+        a.click();
+      }
+
+      const orderOptions = rows.map((r, i) => ({ id: r.id, label: `${i + 1}. ${r.orderNo || "(ไม่ระบุเลขที่)"}` }));
+
+      return (
+        <div className="min-h-screen w-full p-4 sm:p-8" style={{ background: "#efece2" }}>
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4 mb-5 border-b-2 pb-4" style={{ borderColor: "#23211d" }}>
+              <div>
+                <div className="flex items-center gap-2" style={{ color: "#c1502e" }}>
+                  <Icon name="layers" size={18} />
+                  <span className="text-xs font-bold tracking-widest uppercase">Korat Batching Plant</span>
+                </div>
+                <h1 className="text-3xl font-black tracking-tight mt-1" style={{ color: "#23211d" }}>Mix Design</h1>
+                <p className="text-xs mt-1" style={{ color: "#78766e" }}>คำนวณมิกซ์ By Pongston</p>
+              </div>
+              <Icon name="calculator" size={24} color="#78766e" />
+            </div>
+
+            {/* Group Selector */}
+            <div className="flex items-center gap-3 mb-6 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>Group</span>
+              <div className="inline-flex border-2" style={{ borderColor: "#23211d" }}>
+                {Object.entries(GROUPS).map(([key, g], idx) => {
+                  const active = group === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setGroup(key)}
+                      className="px-3 py-1.5 text-sm font-bold"
+                      style={{
+                        background: active ? "#23211d" : "#ffffff",
+                        color: active ? "#f5f3ee" : "#23211d",
+                        borderLeft: idx === 0 ? "none" : "1px solid #23211d",
+                      }}
+                    >
+                      {g.label}. <span style={{ color: active ? "#e8916b" : "#c1502e" }}>{g.short}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Input Table */}
+            <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
+              <table className="w-full text-sm" style={{ minWidth: 800 }}>
+                <thead>
+                  <tr style={{ background: "#23211d", color: "#f5f3ee" }}>
+                    <th className="text-left px-3 py-2">เลขที่ Order</th>
+                    {MATERIAL_COLS.map((c) => <th key={c.key} className="text-right px-3 py-2">{c.label}</th>)}
+                    <th className="text-right px-3 py-2">จำนวน</th>
+                    <th className="px-2 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
+                      <td className="px-3 py-1.5">
+                        <input value={r.orderNo} onChange={(e) => updateRow(r.id, "orderNo", e.target.value)} className="w-full bg-transparent font-mono text-xs outline-none" placeholder="—" />
+                      </td>
+                      {MATERIAL_COLS.map((c) => (
+                        <td key={c.key} className="px-2 py-1.5">
+                          <input type="number" value={r[c.key]} onChange={(e) => updateRow(r.id, c.key, e.target.value)} className="w-full bg-transparent text-right font-mono outline-none" />
+                        </td>
+                      ))}
+                      <td className="px-2 py-1.5">
+                        <input type="number" value={r.qty} onChange={(e) => updateRow(r.id, "qty", e.target.value)} className="w-full bg-transparent text-right font-mono font-semibold outline-none" />
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <button onClick={() => removeRow(r.id)}><Icon name="trash-2" size={15} color="#78766e" /></button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <button onClick={addRow} className="mb-6 inline-flex items-center gap-1 px-3 py-2 text-xs font-bold uppercase border-2" style={{ borderColor: "#23211d", background: "#fff" }}>
+              <Icon name="plus" size={14} /> เพิ่มแถว
+            </button>
+
+            {/* Results Table */}
+            <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
+              <table className="w-full text-sm" style={{ minWidth: 800 }}>
+                <thead>
+                  <tr style={{ background: "#c1502e", color: "#f5f3ee" }}>
+                    <th className="text-left px-3 py-2">เลขที่ Order</th>
+                    {MATERIAL_COLS.map((c) => <th key={c.key} className="text-right px-3 py-2">{c.label} ผลลัพธ์</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.orderNo || "—"}</td>
+                      {MATERIAL_COLS.map((c) => (
+                        <td key={c.key} className="px-3 py-1.5 text-right font-mono">
+                          {finalResults[i][c.key].toFixed(3)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: "2px solid #23211d", background: "#f0eee6" }}>
+                    <td className="px-3 py-2 font-bold text-xs uppercase">รวม / Total</td>
+                    {MATERIAL_COLS.map((c) => (
+                      <td key={c.key} className="px-3 py-2 text-right font-mono font-bold" style={{ color: "#c1502e" }}>{totals[c.key].toFixed(3)}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 items-center">
+              <button onClick={handleSave} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase" style={{ background: "#23211d", color: "#f5f3ee" }}>
+                <Icon name="save" size={14} />
+                {saveState === "saving" ? "กำลังบันทึก..." : saveState === "saved" ? "บันทึกแล้ว ✓" : "บันทึก"}
+              </button>
+              <button onClick={handlePrint} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase border-2" style={{ borderColor: "#23211d", background: "#fff" }}>
+                <Icon name="printer" size={14} /> พิมพ์ / บันทึก PDF
+              </button>
+            </div>
           </div>
         </div>
-        <div style="display:flex; align-items:flex-end;">
-          <button class="btn btn-dark" id="addAdjBtn" style="width:100%; justify-content:center;">4. รวมกับวัตถุดิบที่เลือก</button>
-        </div>
-      </div>
-      ${state.adjustments.length ? `
-        <div class="adj-list-wrap">
-          <table>
-            <thead><tr><th style="text-align:left;">ออเดอร์</th><th style="text-align:left;">วัตถุดิบ</th><th>ค่า</th><th>คิว</th><th>ผลรวม (kg→ton)</th><th></th></tr></thead>
-            <tbody>${listRows}</tbody>
-          </table>
-        </div>
-      ` : ""}
-    </div>
-  `;
-}
-
-function attachListeners() {
-  document.querySelectorAll('[data-action="set-group"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{ state.group = btn.dataset.group; render(); });
-  });
-
-  document.querySelectorAll('#inputTableWrap input').forEach(inp=>{
-    inp.addEventListener('input', ()=>{
-      const id = Number(inp.dataset.row);
-      const key = inp.dataset.key;
-      const row = state.rows.find(r=>r.id===id);
-      row[key] = key==='orderNo' ? inp.value : inp.value;
-      document.getElementById('resultsWrap').innerHTML = renderResultsTable();
-      document.getElementById('resultsLabel').textContent = resultsLabel();
-    });
-  });
-
-  document.querySelectorAll('[data-action="remove-row"]').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const id = Number(btn.dataset.row);
-      state.rows = state.rows.filter(r=>r.id!==id);
-      state.adjustments = state.adjustments.filter(a=>a.orderId!==id);
-      render();
-    });
-  });
-
-  document.getElementById('addRowBtn').addEventListener('click', ()=>{
-    const blank = { id: state.nextRowId++, orderNo:"", qty:0 };
-    MATERIAL_COLS.forEach(c=>blank[c.key]=0);
-    state.rows.push(blank);
-    render();
-  });
-
-  document.getElementById('adjustToggle').addEventListener('click', ()=>{
-    state.showAdjust = !state.showAdjust;
-    render();
-  });
-
-  if (state.showAdjust) {
-    const dO = document.getElementById('draftOrder');
-    const dM = document.getElementById('draftMaterial');
-    const dS = document.getElementById('draftSign');
-    const dV = document.getElementById('draftValue');
-    const dQ = document.getElementById('draftQty');
-    dO.addEventListener('change', ()=>{ state.draft.orderId = Number(dO.value); });
-    dM.addEventListener('change', ()=>{ state.draft.material = dM.value; });
-    dS.addEventListener('change', ()=>{ state.draft.sign = dS.value; dS.style.color = dS.value==='reduce' ? 'var(--rust)' : 'var(--green)'; });
-    dV.addEventListener('input', ()=>{ state.draft.value = dV.value; });
-    dQ.addEventListener('input', ()=>{ state.draft.qty = dQ.value; });
-
-    document.getElementById('addAdjBtn').addEventListener('click', ()=>{
-      const v = num(state.draft.value), q = num(state.draft.qty);
-      if (!state.draft.orderId || v===0 || q===0) return;
-      state.adjustments.push({ id: state.nextAdjId++, orderId: state.draft.orderId, material: state.draft.material, sign: state.draft.sign, value: v, qty: q });
-      state.draft.value = ""; state.draft.qty = "";
-      render();
-    });
-
-    document.querySelectorAll('[data-action="remove-adj"]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        state.adjustments = state.adjustments.filter(a=>a.id!==Number(btn.dataset.id));
-        render();
-      });
-    });
-  }
-
-  document.getElementById('saveBtn').addEventListener('click', handleSave);
-  document.getElementById('pdfBtn').addEventListener('click', handlePdf);
-}
-
-async function handleSave() {
-  state.saveState = "saving";
-  document.getElementById('saveBtn').innerHTML = `${icon("save",14)} ${saveLabel()}`;
-  try {
-    if (window.storage) {
-      await window.storage.set(STORAGE_KEY, JSON.stringify({ rows: state.rows, group: state.group, adjustments: state.adjustments, nextRowId: state.nextRowId, nextAdjId: state.nextAdjId }));
+      );
     }
-    state.saveState = "saved";
-  } catch(e) {
-    state.saveState = "idle";
-  }
-  document.getElementById('saveBtn').innerHTML = `${icon("save",14)} ${saveLabel()}`;
-  setTimeout(()=>{ state.saveState="idle"; const b=document.getElementById('saveBtn'); if(b) b.innerHTML = `${icon("save",14)} ${saveLabel()}`; }, 1800);
-}
 
-async function handlePdf() {
-  if (typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined') {
-    state.pdfState = "error";
-    document.getElementById('pdfBtn').innerHTML = `${icon("file",14)} ${pdfLabel()}`;
-    return;
-  }
-  state.pdfState = "working";
-  document.getElementById('pdfBtn').innerHTML = `${icon("file",14)} ${pdfLabel()}`;
-
-  // Build a temporary clean capture area (avoids inputs rendering oddly, hides action buttons)
-  const capture = document.createElement('div');
-  capture.style.background = "#ffffff";
-  capture.style.padding = "24px";
-  capture.style.width = "1000px";
-  capture.style.fontFamily = "-apple-system, Arial, sans-serif";
-  capture.style.color = "#23211d";
-
-  const g = GROUPS[state.group];
-  capture.innerHTML = `
-    <div style="border-bottom:2px solid #23211d; padding-bottom:14px; margin-bottom:16px;">
-      <div style="color:#c1502e; font-size:11px; font-weight:700; letter-spacing:.2em; text-transform:uppercase;">Korat Batching Plant</div>
-      <div style="font-family:Georgia,serif; font-size:28px; font-weight:900;">Mix Design</div>
-      <div style="font-size:12px; color:#78766e;">คำนวณมิกซ์ By Pongston &nbsp;·&nbsp; Group ${state.group} (${g.short}) — ${g.desc}</div>
-    </div>
-    <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#78766e; margin-bottom:6px;">วัตถุดิบต่อหน่วย (kg)</div>
-    ${tableToStaticHtml(renderInputTable())}
-    ${state.adjustments.length ? `<div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#78766e; margin:16px 0 6px;">รายการปรับวัตถุดิบ</div>${renderAdjustListStatic()}` : ""}
-    <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#78766e; margin:16px 0 6px;">${resultsLabel()}</div>
-    ${renderResultsTable()}
-  `;
-  document.body.appendChild(capture);
-
-  try {
-    const canvas = await html2canvas(capture, { scale: 2, backgroundColor: "#ffffff" });
-    const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
-    const imgW = pageW - 40;
-    const imgH = (canvas.height * imgW) / canvas.width;
-    let y = 20;
-    if (imgH <= pageH - 40) {
-      pdf.addImage(canvas.toDataURL("image/png"), "PNG", 20, y, imgW, imgH);
-    } else {
-      // split across pages
-      let remaining = canvas.height;
-      let sourceY = 0;
-      const pxPerPage = ((pageH - 40) * canvas.width) / imgW;
-      let first = true;
-      while (remaining > 0) {
-        const sliceH = Math.min(pxPerPage, remaining);
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvas.width;
-        sliceCanvas.height = sliceH;
-        const ctx = sliceCanvas.getContext('2d');
-        ctx.drawImage(canvas, 0, sourceY, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
-        const sliceImgH = (sliceH * imgW) / canvas.width;
-        if (!first) pdf.addPage();
-        pdf.addImage(sliceCanvas.toDataURL("image/png"), "PNG", 20, 20, imgW, sliceImgH);
-        sourceY += sliceH;
-        remaining -= sliceH;
-        first = false;
-      }
-    }
-    pdf.save(`mix-design-${state.group}-${Date.now()}.pdf`);
-    state.pdfState = "done";
-  } catch (e) {
-    console.error(e);
-    state.pdfState = "error";
-  } finally {
-    document.body.removeChild(capture);
-    document.getElementById('pdfBtn').innerHTML = `${icon("file",14)} ${pdfLabel()}`;
-    setTimeout(()=>{ state.pdfState="idle"; const b=document.getElementById('pdfBtn'); if(b) b.innerHTML = `${icon("file",14)} ${pdfLabel()}`; }, 2200);
-  }
-}
-
-// Renders the input table as static values (no live <input> boxes) for the PDF capture
-function tableToStaticHtml() {
-  return `
-    <table style="width:100%; border-collapse:collapse; font-size:12px; border:1px solid #23211d;">
-      <thead><tr style="background:#23211d; color:#fff;">
-        <th style="text-align:left; padding:6px 8px;">เลขที่ Order</th>
-        ${MATERIAL_COLS.map(c=>`<th style="text-align:right; padding:6px 8px;">${c.label}</th>`).join("")}
-        <th style="text-align:right; padding:6px 8px;">จำนวน</th>
-      </tr></thead>
-      <tbody>
-        ${state.rows.map((r,i)=>`
-          <tr style="background:${i%2===0?'#fff':'#f7f5f0'};">
-            <td style="padding:5px 8px; border-top:1px solid #e3e0d5;">${r.orderNo||'—'}</td>
-            ${MATERIAL_COLS.map(c=>`<td style="text-align:right; padding:5px 8px; border-top:1px solid #e3e0d5; font-family:ui-monospace,monospace;">${r[c.key]}</td>`).join("")}
-            <td style="text-align:right; padding:5px 8px; border-top:1px solid #e3e0d5; font-family:ui-monospace,monospace; font-weight:600;">${r.qty}</td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-function renderAdjustListStatic() {
-  const reduce = GROUPS[state.group].reduce;
-  return `
-    <table style="width:100%; border-collapse:collapse; font-size:12px; border:1px solid #d8d5cb;">
-      <thead><tr style="background:#f0eee6; color:#78766e;">
-        <th style="text-align:left; padding:5px 8px;">ออเดอร์</th><th style="text-align:left; padding:5px 8px;">วัตถุดิบ</th>
-        <th style="text-align:right; padding:5px 8px;">ค่า</th><th style="text-align:right; padding:5px 8px;">คิว</th><th style="text-align:right; padding:5px 8px;">ผลรวม</th>
-      </tr></thead>
-      <tbody>
-        ${state.adjustments.map(a=>{
-          const idx = state.rows.findIndex(r=>r.id===a.orderId);
-          const orderLabel = idx>=0 ? `${idx+1}. ${state.rows[idx].orderNo||'—'}` : '—';
-          const matLabel = MATERIAL_COLS.find(c=>c.key===a.material)?.label;
-          const raw = a.material==='water' ? a.value*a.qty : a.value*a.qty*(1-reduce)*0.001;
-          const signed = a.sign==='reduce' ? -raw : raw;
-          return `<tr><td style="padding:5px 8px; border-top:1px solid #e3e0d5;">${orderLabel}</td><td style="padding:5px 8px; border-top:1px solid #e3e0d5;">${matLabel}</td>
-            <td style="text-align:right; padding:5px 8px; border-top:1px solid #e3e0d5;">${a.sign==='reduce'?'−':'+'}${a.value}</td>
-            <td style="text-align:right; padding:5px 8px; border-top:1px solid #e3e0d5;">${a.qty}</td>
-            <td style="text-align:right; padding:5px 8px; border-top:1px solid #e3e0d5; font-weight:600;">${signed.toFixed(3)}</td></tr>`;
-        }).join("")}
-      </tbody>
-    </table>
-  `;
-}
-
-async function init() {
-  try {
-    if (window.storage) {
-      const res = await window.storage.get(STORAGE_KEY);
-      if (res && res.value) {
-        const data = JSON.parse(res.value);
-        if (data.rows) state.rows = data.rows;
-        if (data.group) state.group = data.group;
-        if (data.adjustments) state.adjustments = data.adjustments;
-        if (data.nextRowId) state.nextRowId = data.nextRowId;
-        if (data.nextAdjId) state.nextAdjId = data.nextAdjId;
-      }
-    }
-  } catch(e) { /* no saved state yet */ }
-  render();
-}
-
-init();
-</script>
+    ReactDOM.createRoot(document.getElementById("root")).render(<MixDesignCalculator />);
+  </script>
 </body>
 </html>
