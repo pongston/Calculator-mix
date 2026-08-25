@@ -5,20 +5,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Mix Design - Korat Batching Plant</title>
 
-  <!-- React & ReactDOM -->
+  <!-- React & ReactDOM (Production Build) -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <!-- Babel for JSX -->
+  
+  <!-- Babel Standalone (แปลง JSX ในเบราว์เซอร์) -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Tailwind CSS -->
+  
+  <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
   <style>
-    body { background-color: #efece2; -webkit-tap-highlight-color: transparent; }
+    body { 
+      background-color: #efece2; 
+      -webkit-tap-highlight-color: transparent; 
+    }
     input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
   </style>
 </head>
 <body>
@@ -27,7 +36,7 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
-    // Icon Wrapper Component for Lucide
+    // Helper Component สำหรับแสดง Lucide Icons
     const Icon = ({ name, size = 18, color, className = "", style = {} }) => {
       useEffect(() => {
         if (window.lucide) window.lucide.createIcons();
@@ -53,6 +62,7 @@
     };
 
     const STORAGE_KEY = "mixdesign-state-v1";
+
     let nextRowId = 4;
     let nextAdjId = 1;
 
@@ -74,6 +84,7 @@
       const [adjustments, setAdjustments] = useState([]);
       const [saveState, setSaveState] = useState("idle");
       const [saveError, setSaveError] = useState("");
+      const [storageAvailable, setStorageAvailable] = useState(true);
 
       const [draftOrderId, setDraftOrderId] = useState(null);
       const [draftMaterial, setDraftMaterial] = useState(MATERIAL_COLS[0].key);
@@ -83,6 +94,7 @@
 
       const reduce = GROUPS[group].reduce;
 
+      // โหลดข้อมูลจาก LocalStorage
       useEffect(() => {
         try {
           const saved = localStorage.getItem(STORAGE_KEY);
@@ -98,7 +110,9 @@
               nextAdjId = data.adjustments.length ? Math.max(...data.adjustments.map((a) => a.id)) + 1 : 1;
             }
           }
-        } catch (e) {}
+        } catch (e) {
+          setStorageAvailable(false);
+        }
       }, []);
 
       useEffect(() => {
@@ -176,12 +190,13 @@
 
       function handleSave() {
         setSaveState("saving");
+        setSaveError("");
         try {
           localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows, group, adjustments }));
           setSaveState("saved");
           setTimeout(() => setSaveState("idle"), 1800);
         } catch (e) {
-          setSaveError("บันทึกไม่สำเร็จ");
+          setSaveError("บันทึกไม่สำเร็จ: เกิดข้อผิดพลาดทางเทคนิค");
           setSaveState("idle");
         }
       }
@@ -192,22 +207,65 @@
           .map((r) => {
             const cells = MATERIAL_COLS.map((c) => `<td>${num(r[c.key])}</td>`).join("");
             return `<tr><td>${r.orderNo || "—"}</td>${cells}<td>${r.qty}</td></tr>`;
-          }).join("");
+          })
+          .join("");
         const resultRowsHtml = rows
           .map((r, i) => {
             const cells = MATERIAL_COLS.map((c) => `<td>${finalResults[i][c.key].toFixed(3)}</td>`).join("");
             return `<tr><td>${r.orderNo || "—"}</td>${cells}</tr>`;
-          }).join("");
+          })
+          .join("");
         const totalCells = MATERIAL_COLS.map((c) => `<td><b>${totals[c.key].toFixed(3)}</b></td>`).join("");
+        const adjRowsHtml = adjustments
+          .map((a) => {
+            const rIdx = rows.findIndex((r) => r.id === a.orderId);
+            const orderLabel = rIdx >= 0 ? rows[rIdx].orderNo || "—" : "—";
+            const matLabel = MATERIAL_COLS.find((c) => c.key === a.material)?.label;
+            return `<tr><td>${orderLabel}</td><td>${matLabel}</td><td>${a.sign === "reduce" ? "-" : "+"}${a.value}</td><td>${a.qty}</td></tr>`;
+          })
+          .join("");
 
-        return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Report</title>
-        <style>body{font-family:sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #999;padding:6px;text-align:right;} th:first-child,td:first-child{text-align:left;} th{background:#23211d;color:#fff;}</style>
-        </head><body>
-        <h1>Mix Design — Korat Batching Plant</h1>
-        <p>Group ${groupInfo.label} (${groupInfo.desc}) | ${new Date().toLocaleString("th-TH")}</p>
-        <h3>วัตถุดิบต่อหน่วย</h3><table><tr><th>Order</th>${MATERIAL_COLS.map(c=>`<th>${c.label}</th>`).join("")}<th>จำนวน</th></tr>${rowsHtml}</table>
-        <h3>ผลลัพธ์ (ตัน/kg)</h3><table><tr><th>Order</th>${MATERIAL_COLS.map(c=>`<th>${c.label}</th>`).join("")}</tr>${resultRowsHtml}<tr><td><b>รวม</b></td>${totalCells}</tr></table>
-        </body></html>`;
+        return `<!DOCTYPE html>
+<html lang="th"><head><meta charset="UTF-8">
+<title>Mix Design Report</title>
+<style>
+  body { font-family: Arial, sans-serif; color:#23211d; padding: 24px; }
+  h1 { margin-bottom: 0; }
+  .sub { color:#78766e; margin-top:4px; margin-bottom:20px; font-size:13px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 24px; font-size: 12px; }
+  th, td { border: 1px solid #999; padding: 5px 8px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: #23211d; color: #fff; }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color:#78766e; border-bottom: 2px solid #23211d; padding-bottom: 4px; }
+  @media print { .no-print { display:none; } }
+</style>
+</head>
+<body>
+  <div class="no-print" style="margin-bottom:16px;">
+    <button onclick="window.print()" style="padding:8px 16px;font-weight:bold;">พิมพ์ / บันทึก PDF</button>
+  </div>
+  <h1>Mix Design — Korat Batching Plant</h1>
+  <div class="sub">คำนวณมิกซ์ By Pongston &nbsp;|&nbsp; Group ${groupInfo.label} (${groupInfo.desc}) &nbsp;|&nbsp; พิมพ์เมื่อ ${new Date().toLocaleString("th-TH")}</div>
+
+  <h2>วัตถุดิบต่อหน่วย (kg)</h2>
+  <table>
+    <tr><th>Order</th>${MATERIAL_COLS.map((c) => `<th>${c.label}</th>`).join("")}<th>จำนวน</th></tr>
+    ${rowsHtml}
+  </table>
+
+  ${adjustments.length ? `<h2>รายการปรับวัตถุดิบเพิ่มเติม</h2>
+  <table>
+    <tr><th>Order</th><th>วัตถุดิบ</th><th>ค่า</th><th>คิว</th></tr>
+    ${adjRowsHtml}
+  </table>` : ""}
+
+  <h2>ผลลัพธ์ (ตัน / kg)</h2>
+  <table>
+    <tr><th>Order</th>${MATERIAL_COLS.map((c) => `<th>${c.label}</th>`).join("")}</tr>
+    ${resultRowsHtml}
+    <tr><td><b>รวม</b></td>${totalCells}</tr>
+  </table>
+</body></html>`;
       }
 
       function handlePrint() {
@@ -217,26 +275,41 @@
         const a = document.createElement("a");
         a.href = url;
         a.download = `mix-design-report-${Date.now()}.html`;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
       }
 
       const orderOptions = rows.map((r, i) => ({ id: r.id, label: `${i + 1}. ${r.orderNo || "(ไม่ระบุเลขที่)"}` }));
 
       return (
-        <div className="min-h-screen w-full p-4 sm:p-8" style={{ background: "#efece2" }}>
-          <div className="max-w-6xl mx-auto">
+        <div className="min-h-screen w-full" style={{ background: "#efece2" }}>
+          <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-10">
             {/* Header */}
             <div className="flex items-start justify-between gap-4 mb-5 border-b-2 pb-4" style={{ borderColor: "#23211d" }}>
               <div>
                 <div className="flex items-center gap-2" style={{ color: "#c1502e" }}>
                   <Icon name="layers" size={18} />
-                  <span className="text-xs font-bold tracking-widest uppercase">Korat Batching Plant</span>
+                  <span className="text-xs font-bold tracking-[0.2em] uppercase">Korat Batching Plant</span>
                 </div>
-                <h1 className="text-3xl font-black tracking-tight mt-1" style={{ color: "#23211d" }}>Mix Design</h1>
+                <h1
+                  className="text-3xl sm:text-4xl font-black tracking-tight mt-1"
+                  style={{ color: "#23211d", fontFamily: "Georgia, 'Times New Roman', serif" }}
+                >
+                  Mix Design
+                </h1>
                 <p className="text-xs mt-1" style={{ color: "#78766e" }}>คำนวณมิกซ์ By Pongston</p>
               </div>
-              <Icon name="calculator" size={24} color="#78766e" />
+              <Icon name="calculator" size={22} className="hidden sm:block" style={{ color: "#78766e" }} />
             </div>
+
+            {!storageAvailable && (
+              <div className="flex items-start gap-2 mb-4 px-3 py-2 text-xs" style={{ background: "#fbe9e2", color: "#8a3b1f", border: "1px solid #e0a888" }}>
+                <Icon name="alert-circle" size={14} className="mt-0.5 shrink-0" />
+                <span>การบันทึกถาวรใช้ไม่ได้ในเบราว์เซอร์นี้ ข้อมูลจะยังคงอยู่ระหว่างใช้งาน แต่จะหายไปเมื่อปิดหน้าต่าง — ใช้ปุ่ม "พิมพ์ / บันทึก PDF" เพื่อเก็บสำเนาไว้แทน</span>
+              </div>
+            )}
 
             {/* Group Selector */}
             <div className="flex items-center gap-3 mb-6 flex-wrap">
@@ -248,47 +321,76 @@
                     <button
                       key={key}
                       onClick={() => setGroup(key)}
-                      className="px-3 py-1.5 text-sm font-bold"
+                      className="px-3 py-1.5 text-sm font-bold transition-colors"
                       style={{
                         background: active ? "#23211d" : "#ffffff",
                         color: active ? "#f5f3ee" : "#23211d",
                         borderLeft: idx === 0 ? "none" : "1px solid #23211d",
                       }}
+                      title={g.desc}
                     >
                       {g.label}. <span style={{ color: active ? "#e8916b" : "#c1502e" }}>{g.short}</span>
                     </button>
                   );
                 })}
               </div>
+              <span className="text-xs" style={{ color: "#a09d92" }}>{GROUPS[group].desc}</span>
             </div>
 
             {/* Input Table */}
+            <div className="mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>
+              วัตถุดิบต่อหน่วย (kg) — แก้ไขได้
+            </div>
             <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
-              <table className="w-full text-sm" style={{ minWidth: 800 }}>
+              <table className="w-full text-sm" style={{ minWidth: 920 }}>
                 <thead>
                   <tr style={{ background: "#23211d", color: "#f5f3ee" }}>
-                    <th className="text-left px-3 py-2">เลขที่ Order</th>
-                    {MATERIAL_COLS.map((c) => <th key={c.key} className="text-right px-3 py-2">{c.label}</th>)}
-                    <th className="text-right px-3 py-2">จำนวน</th>
-                    <th className="px-2 py-2"></th>
+                    <th className="text-left px-3 py-2 font-semibold sticky left-0" style={{ background: "#23211d", minWidth: 120 }}>
+                      เลขที่ Order
+                    </th>
+                    {MATERIAL_COLS.map((c) => (
+                      <th key={c.key} className="text-right px-3 py-2 font-semibold" style={{ minWidth: 90 }}>{c.label}</th>
+                    ))}
+                    <th className="text-right px-3 py-2 font-semibold" style={{ minWidth: 80 }}>จำนวน</th>
+                    <th className="px-2 py-2" style={{ minWidth: 44 }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
-                      <td className="px-3 py-1.5">
-                        <input value={r.orderNo} onChange={(e) => updateRow(r.id, "orderNo", e.target.value)} className="w-full bg-transparent font-mono text-xs outline-none" placeholder="—" />
+                      <td className="px-3 py-1.5 sticky left-0" style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0" }}>
+                        <input
+                          value={r.orderNo}
+                          onChange={(e) => updateRow(r.id, "orderNo", e.target.value)}
+                          className="w-full bg-transparent outline-none font-mono text-xs"
+                          style={{ color: "#23211d" }}
+                          placeholder="—"
+                        />
                       </td>
                       {MATERIAL_COLS.map((c) => (
                         <td key={c.key} className="px-2 py-1.5">
-                          <input type="number" value={r[c.key]} onChange={(e) => updateRow(r.id, c.key, e.target.value)} className="w-full bg-transparent text-right font-mono outline-none" />
+                          <input
+                            type="number"
+                            value={r[c.key]}
+                            onChange={(e) => updateRow(r.id, c.key, e.target.value)}
+                            className="w-full bg-transparent outline-none text-right font-mono"
+                            style={{ color: c.key === "air" ? "#c1502e" : "#23211d" }}
+                          />
                         </td>
                       ))}
                       <td className="px-2 py-1.5">
-                        <input type="number" value={r.qty} onChange={(e) => updateRow(r.id, "qty", e.target.value)} className="w-full bg-transparent text-right font-mono font-semibold outline-none" />
+                        <input
+                          type="number"
+                          value={r.qty}
+                          onChange={(e) => updateRow(r.id, "qty", e.target.value)}
+                          className="w-full bg-transparent outline-none text-right font-mono font-semibold"
+                          style={{ color: "#23211d" }}
+                        />
                       </td>
                       <td className="px-2 py-1.5 text-center">
-                        <button onClick={() => removeRow(r.id)}><Icon name="trash-2" size={15} color="#78766e" /></button>
+                        <button onClick={() => removeRow(r.id)} title="ลบแถว" style={{ color: "#78766e" }}>
+                          <Icon name="trash-2" size={15} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -296,32 +398,184 @@
               </table>
             </div>
 
-            <button onClick={addRow} className="mb-6 inline-flex items-center gap-1 px-3 py-2 text-xs font-bold uppercase border-2" style={{ borderColor: "#23211d", background: "#fff" }}>
+            <button
+              onClick={addRow}
+              className="mb-6 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2"
+              style={{ borderColor: "#23211d", color: "#23211d", background: "#ffffff" }}
+            >
               <Icon name="plus" size={14} /> เพิ่มแถว
             </button>
 
+            {/* Adjustment Panel */}
+            <div className="mb-6 border-2" style={{ borderColor: "#23211d", background: "#ffffff" }}>
+              <div className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none" onClick={() => setShowAdjust((s) => !s)}>
+                <span
+                  className="w-5 h-5 flex items-center justify-center border-2 shrink-0"
+                  style={{ borderColor: "#23211d", background: showAdjust ? "#c1502e" : "#ffffff" }}
+                >
+                  {showAdjust && <Icon name="check" size={13} color="#fff" />}
+                </span>
+                <span className="text-sm font-bold" style={{ color: "#23211d" }}>
+                  ปรับวัตถุดิบเพิ่มเติมรายออเดอร์ (แสดงรายละเอียด 3 หัวข้อ)
+                </span>
+                <Icon
+                  name="chevron-down"
+                  size={16}
+                  className="ml-auto transition-transform"
+                  style={{ color: "#78766e", transform: showAdjust ? "rotate(180deg)" : "none" }}
+                />
+              </div>
+
+              {showAdjust && (
+                <div className="px-4 pb-4 pt-1 border-t-2" style={{ borderColor: "#e3e0d5" }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>1. เลขที่ออเดอร์</div>
+                      <select
+                        value={draftOrderId ?? ""}
+                        onChange={(e) => setDraftOrderId(Number(e.target.value))}
+                        className="w-full border-2 px-2 py-1.5 text-sm bg-white"
+                        style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                      >
+                        {orderOptions.map((o) => (
+                          <option key={o.id} value={o.id}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>2. ชนิดวัตถุดิบ</div>
+                      <select
+                        value={draftMaterial}
+                        onChange={(e) => setDraftMaterial(e.target.value)}
+                        className="w-full border-2 px-2 py-1.5 text-sm bg-white"
+                        style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                      >
+                        {MATERIAL_COLS.map((c) => (
+                          <option key={c.key} value={c.key}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>3. ค่า (กก.) / คิว</div>
+                      <div className="flex gap-1">
+                        <select
+                          value={draftSign}
+                          onChange={(e) => setDraftSign(e.target.value)}
+                          className="border-2 px-1 py-1.5 text-sm bg-white shrink-0"
+                          style={{ borderColor: "#d8d5cb", color: draftSign === "reduce" ? "#c1502e" : "#2e7d46" }}
+                        >
+                          <option value="add">เพิ่ม +</option>
+                          <option value="reduce">ลด −</option>
+                        </select>
+                        <input
+                          type="number"
+                          value={draftValue}
+                          onChange={(e) => setDraftValue(e.target.value)}
+                          placeholder="ค่า"
+                          className="w-full border-2 px-2 py-1.5 text-sm font-mono"
+                          style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                        />
+                        <input
+                          type="number"
+                          value={draftQty}
+                          onChange={(e) => setDraftQty(e.target.value)}
+                          placeholder="คิว"
+                          className="w-full border-2 px-2 py-1.5 text-sm font-mono"
+                          style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-end">
+                      <button
+                        onClick={addAdjustment}
+                        className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider"
+                        style={{ background: "#23211d", color: "#f5f3ee" }}
+                      >
+                        4. รวมกับวัตถุดิบที่เลือก
+                      </button>
+                    </div>
+                  </div>
+
+                  {adjustments.length > 0 && (
+                    <div className="mt-4 overflow-x-auto border-2" style={{ borderColor: "#e3e0d5" }}>
+                      <table className="w-full text-xs" style={{ minWidth: 560 }}>
+                        <thead>
+                          <tr style={{ background: "#f0eee6", color: "#78766e" }}>
+                            <th className="text-left px-2 py-1.5">ออเดอร์</th>
+                            <th className="text-left px-2 py-1.5">วัตถุดิบ</th>
+                            <th className="text-right px-2 py-1.5">ค่า</th>
+                            <th className="text-right px-2 py-1.5">คิว</th>
+                            <th className="text-right px-2 py-1.5">ผลรวม (kg→ton)</th>
+                            <th className="px-2 py-1.5"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adjustments.map((a) => {
+                            const rowIdx = rows.findIndex((r) => r.id === a.orderId);
+                            const orderLabel = rowIdx >= 0 ? `${rowIdx + 1}. ${rows[rowIdx].orderNo || "—"}` : "—";
+                            const matLabel = MATERIAL_COLS.find((c) => c.key === a.material)?.label;
+                            const raw = a.material === "water" ? a.value * a.qty : a.value * a.qty * (1 - reduce) * 0.001;
+                            const signed = a.sign === "reduce" ? -raw : raw;
+                            return (
+                              <tr key={a.id} style={{ borderTop: "1px solid #e3e0d5" }}>
+                                <td className="px-2 py-1.5 font-mono">{orderLabel}</td>
+                                <td className="px-2 py-1.5">{matLabel}</td>
+                                <td className="px-2 py-1.5 text-right font-mono" style={{ color: a.sign === "reduce" ? "#c1502e" : "#2e7d46" }}>
+                                  {a.sign === "reduce" ? "−" : "+"}{a.value}
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-mono">{a.qty}</td>
+                                <td className="px-2 py-1.5 text-right font-mono font-semibold">{signed.toFixed(3)}</td>
+                                <td className="px-2 py-1.5 text-center">
+                                  <button onClick={() => removeAdjustment(a.id)} style={{ color: "#78766e" }}>
+                                    <Icon name="trash-2" size={13} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Results Table */}
+            <div className="mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>
+              ผลลัพธ์ (Group {group} · {GROUPS[group].short}) — ตัน / kg{adjustments.length > 0 ? " · รวมรายการปรับแล้ว" : ""}
+            </div>
             <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
-              <table className="w-full text-sm" style={{ minWidth: 800 }}>
+              <table className="w-full text-sm" style={{ minWidth: 820 }}>
                 <thead>
                   <tr style={{ background: "#c1502e", color: "#f5f3ee" }}>
-                    <th className="text-left px-3 py-2">เลขที่ Order</th>
-                    {MATERIAL_COLS.map((c) => <th key={c.key} className="text-right px-3 py-2">{c.label} ผลลัพธ์</th>)}
+                    <th className="text-left px-3 py-2 font-semibold sticky left-0" style={{ background: "#c1502e", minWidth: 120 }}>เลขที่ Order</th>
+                    {MATERIAL_COLS.map((c) => (
+                      <th key={c.key} className="text-right px-3 py-2 font-semibold" style={{ minWidth: 100 }}>{c.label} ผลลัพธ์</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((r, i) => (
                     <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
-                      <td className="px-3 py-1.5 font-mono text-xs">{r.orderNo || "—"}</td>
-                      {MATERIAL_COLS.map((c) => (
-                        <td key={c.key} className="px-3 py-1.5 text-right font-mono">
-                          {finalResults[i][c.key].toFixed(3)}
-                        </td>
-                      ))}
+                      <td className="px-3 py-1.5 font-mono text-xs sticky left-0" style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0" }}>
+                        {r.orderNo || "—"}
+                      </td>
+                      {MATERIAL_COLS.map((c) => {
+                        const adjusted = adjustmentContribution(r.id, c.key) !== 0;
+                        return (
+                          <td key={c.key} className="px-3 py-1.5 text-right font-mono" style={{ color: adjusted ? "#c1502e" : "#23211d", fontWeight: adjusted ? 700 : 400 }}>
+                            {finalResults[i][c.key].toFixed(3)}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                   <tr style={{ borderTop: "2px solid #23211d", background: "#f0eee6" }}>
-                    <td className="px-3 py-2 font-bold text-xs uppercase">รวม / Total</td>
+                    <td className="px-3 py-2 font-bold text-xs uppercase sticky left-0" style={{ background: "#f0eee6", color: "#23211d" }}>รวม / Total</td>
                     {MATERIAL_COLS.map((c) => (
                       <td key={c.key} className="px-3 py-2 text-right font-mono font-bold" style={{ color: "#c1502e" }}>{totals[c.key].toFixed(3)}</td>
                     ))}
@@ -330,16 +584,34 @@
               </table>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-2 items-center">
-              <button onClick={handleSave} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase" style={{ background: "#23211d", color: "#f5f3ee" }}>
+            {/* Actions */}
+            <div className="flex flex-wrap gap-2 items-center">
+              <button
+                onClick={handleSave}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider"
+                style={{ background: "#23211d", color: "#f5f3ee" }}
+              >
                 <Icon name="save" size={14} />
                 {saveState === "saving" ? "กำลังบันทึก..." : saveState === "saved" ? "บันทึกแล้ว ✓" : "บันทึก"}
               </button>
-              <button onClick={handlePrint} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase border-2" style={{ borderColor: "#23211d", background: "#fff" }}>
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider border-2"
+                style={{ borderColor: "#23211d", color: "#23211d", background: "#ffffff" }}
+              >
                 <Icon name="printer" size={14} /> พิมพ์ / บันทึก PDF
               </button>
+              {saveError && <span className="text-xs" style={{ color: "#c1502e" }}>{saveError}</span>}
             </div>
+
+            <p className="text-xs mt-2" style={{ color: "#a09d92" }}>
+              "พิมพ์ / บันทึก PDF" จะดาวน์โหลดไฟล์รายงาน (.html) — เปิดไฟล์นั้นแล้วกดปุ่มพิมพ์ในหน้า หรือใช้เมนู Print ของเบราว์เซอร์แล้วเลือก "Save as PDF"
+            </p>
+
+            <p className="text-xs mt-4" style={{ color: "#a09d92" }}>
+              สูตร: ผลลัพธ์ = วัตถุดิบ × จำนวน × (1 − % หักของกลุ่ม) × 0.001 (แปลง กก. → ตัน) · น้ำไม่ถูกหักเปอร์เซ็นต์และไม่แปลงหน่วย ·
+              คอลัมน์ Air ใช้สูตรเดียวกับ Cement · รายการปรับต่อออเดอร์จะถูกบวก/ลบเข้ากับผลลัพธ์ของวัตถุดิบนั้นโดยตรง
+            </p>
           </div>
         </div>
       );
