@@ -5,5 +5,12 @@
     "passwordHash": "45195dc0113ef93e6f3627c713b2cf05ece2b272e892daf9f7d9cd0a4fde501e",
     "role": "ADMIN",
     "active": true
+  },
+  {
+    "id": 1790283931640,
+    "username": "Ken",
+    "passwordHash": "78e0b1fdb55ecbc60a8da0168ce87daa0e7ba2b44ffa0cf61a8f0a6c5b423d7a",
+    "role": "USER",
+    "active": true
   }
 ]
