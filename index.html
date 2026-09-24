@@ -53,8 +53,8 @@
       C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
     };
 
-    const STORAGE_KEY = "korat_mix_design_data_v8";
-    const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v8";
+    const STORAGE_KEY = "korat_mix_design_data_v9";
+    const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v9";
 
     async function sha256(message) {
       if (!message) return "";
@@ -98,6 +98,12 @@
       useEffect(() => {
         async function initUsers() {
           try {
+            // บังคับล้างข้อมูลเก่าเวอร์ชันก่อนหน้าเพื่อเคลียร์สถานะค้าง
+            if (!localStorage.getItem("korat_app_reset_v9")) {
+              localStorage.removeItem(USERS_STORAGE_KEY);
+              localStorage.setItem("korat_app_reset_v9", "true");
+            }
+
             const savedUsers = localStorage.getItem(USERS_STORAGE_KEY);
             if (savedUsers) {
               setUsers(JSON.parse(savedUsers));
