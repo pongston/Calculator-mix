@@ -36,6 +36,14 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
+    // ตั้งค่า GitHub Repository ของคุณ
+    const GH_CONFIG = {
+      owner: "pongston",
+      repo: "Calculator-mix",
+      branch: "main",
+      token: "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"
+    };
+
     const MATERIAL_COLS = [
       { key: "cement", label: "Cement" },
       { key: "rock", label: "Rock" },
@@ -53,9 +61,6 @@
       C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
     };
 
-    const STORAGE_KEY = "korat_mix_design_data_v9";
-    const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v9";
-
     async function sha256(message) {
       if (!message) return "";
       try {
@@ -66,6 +71,63 @@
       } catch (e) {
         console.error("Crypto API error:", e);
         return "";
+      }
+    }
+
+    async function fetchGitHubFile(path) {
+      try {
+        const url = `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${path}`;
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${GH_CONFIG.token}`,
+            Accept: "application/vnd.github.v3+json"
+          }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const content = JSON.parse(decodeURIComponent(escape(window.atob(data.content))));
+        return { content, sha: data.sha };
+      } catch (e) {
+        console.error(`Error reading ${path}:`, e);
+        return null;
+      }
+    }
+
+    async function saveGitHubFile(path, contentObj, message) {
+      try {
+        const url = `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${path}`;
+        const existing = await fetchGitHubFile(path);
+        const sha = existing ? existing.sha : undefined;
+
+        const contentString = JSON.stringify(contentObj, null, 2);
+        const encodedContent = btoa(unescape(encodeURIComponent(contentString)));
+
+        const bodyData = {
+          message: message || `Update ${path} via Korat Web App`,
+          content: encodedContent,
+          branch: GH_CONFIG.branch
+        };
+        if (sha) bodyData.sha = sha;
+
+        const res = await fetch(url, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${GH_CONFIG.token}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json"
+          },
+          body: JSON.stringify(bodyData)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.message || "GitHub Save Failed");
+        }
+        return true;
+      } catch (e) {
+        console.error(`Error saving ${path}:`, e);
+        alert("บันทึกข้อมูลลง GitHub ไม่สำเร็จ: " + e.message);
+        return false;
       }
     }
 
@@ -98,22 +160,16 @@
       useEffect(() => {
         async function initUsers() {
           try {
-            // บังคับล้างข้อมูลเก่าเวอร์ชันก่อนหน้าเพื่อเคลียร์สถานะค้าง
-            if (!localStorage.getItem("korat_app_reset_v9")) {
-              localStorage.removeItem(USERS_STORAGE_KEY);
-              localStorage.setItem("korat_app_reset_v9", "true");
-            }
-
-            const savedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-            if (savedUsers) {
-              setUsers(JSON.parse(savedUsers));
+            const remoteData = await fetchGitHubFile("users.json");
+            if (remoteData && remoteData.content && Array.isArray(remoteData.content) && remoteData.content.length > 0) {
+              setUsers(remoteData.content);
             } else {
               const defaultPassHash = await sha256("Korat@2026#Secure");
               const initial = [
                 { id: 1, username: "admin", passwordHash: defaultPassHash, role: "ADMIN", active: true }
               ];
               setUsers(initial);
-              localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initial));
+              await saveGitHubFile("users.json", initial, "Initialize default admin user");
             }
           } catch (e) {
             console.error("Init users error:", e);
@@ -123,19 +179,15 @@
         initUsers();
       }, []);
 
-      const saveUsers = (newUsers) => {
+      const saveUsers = async (newUsers) => {
         setUsers(newUsers);
-        try {
-          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(newUsers));
-        } catch (e) {
-          console.error("Save users error:", e);
-        }
+        await saveGitHubFile("users.json", newUsers, "Update users list");
       };
 
       if (!isInitialized) {
         return (
           <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white text-sm">
-            Loading System...
+            กำลังเชื่อมต่อฐานข้อมูล GitHub...
           </div>
         );
       }
@@ -192,7 +244,7 @@
               <Icon name="layers" size={26} />
             </div>
             <h2 className="text-2xl font-semibold text-white mb-1 text-center">คำนวณ Mix Design Belly</h2>
-            <p className="text-xs text-gray-400 mb-6 text-center">User และ Password ติดต่อ Pongston</p>
+            <p className="text-xs text-gray-400 mb-6 text-center">เชื่อมต่อฐานข้อมูลกลางผ่าน GitHub</p>
             
             <form onSubmit={handleSignIn} className="flex flex-col w-full gap-4">
               <div className="w-full flex flex-col gap-3">
@@ -241,7 +293,6 @@
       const [showAdjust, setShowAdjust] = useState(false);
       const [adjustments, setAdjustments] = useState([]);
       const [saveState, setSaveState] = useState("idle");
-      const [saveError, setSaveError] = useState("");
 
       const [draftOrderId, setDraftOrderId] = useState(null);
       const [draftMaterial, setDraftMaterial] = useState(MATERIAL_COLS[0].key);
@@ -258,10 +309,10 @@
       const reduce = GROUPS[group].reduce;
 
       useEffect(() => {
-        try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const data = JSON.parse(saved);
+        async function loadMixData() {
+          const remote = await fetchGitHubFile("mixdata.json");
+          if (remote && remote.content) {
+            const data = remote.content;
             if (data.rows && data.rows.length) {
               setRows(data.rows);
               nextRowId = Math.max(...data.rows.map((r) => r.id)) + 1;
@@ -272,9 +323,8 @@
               nextAdjId = data.adjustments.length ? Math.max(...data.adjustments.map((a) => a.id)) + 1 : 1;
             }
           }
-        } catch (e) {
-          console.error("Load data error:", e);
         }
+        loadMixData();
       }, []);
 
       useEffect(() => {
@@ -348,15 +398,13 @@
         setDraftQty("");
       }
 
-      function handleSave() {
+      async function handleSave() {
         setSaveState("saving");
-        setSaveError("");
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows, group, adjustments }));
+        const success = await saveGitHubFile("mixdata.json", { rows, group, adjustments }, "Update mix design data");
+        if (success) {
           setSaveState("saved");
           setTimeout(() => setSaveState("idle"), 1800);
-        } catch (e) {
-          setSaveError("บันทึกไม่สำเร็จ");
+        } else {
           setSaveState("idle");
         }
       }
@@ -408,18 +456,18 @@
         }
         const passwordHash = await sha256(newPassword);
         const updated = [...users, { id: Date.now(), username: newUsername.trim(), passwordHash, role: newRole, active: true }];
-        onUpdateUsers(updated);
+        await onUpdateUsers(updated);
         setNewUsername("");
         setNewPassword("");
-        alert("สร้าง User สำเร็จแล้ว");
+        alert("สร้าง User และบันทึกลง GitHub สำเร็จแล้ว");
       };
 
-      const handleToggleActive = (id) => {
+      const handleToggleActive = async (id) => {
         const updated = users.map(u => u.id === id ? { ...u, active: !u.active } : u);
-        onUpdateUsers(updated);
+        await onUpdateUsers(updated);
       };
 
-      const handleDeleteUser = (id) => {
+      const handleDeleteUser = async (id) => {
         const target = users.find(u => u.id === id);
         if (target && target.username.toLowerCase() === 'admin' && users.filter(u => u.role.toUpperCase() === 'ADMIN').length <= 1) {
           alert("ไม่สามารถลบบัญชี Administrator หลักตัวสุดท้ายของระบบได้");
@@ -427,7 +475,7 @@
         }
         if (confirm(`คุณต้องการลบผู้ใช้งาน "${target?.username}" ใช่หรือไม่?`)) {
           const updated = users.filter(u => u.id !== id);
-          onUpdateUsers(updated);
+          await onUpdateUsers(updated);
         }
       };
 
@@ -440,8 +488,8 @@
           }
           const passwordHash = await sha256(p);
           const updated = users.map(u => u.id === id ? { ...u, passwordHash } : u);
-          onUpdateUsers(updated);
-          alert("เปลี่ยนรหัสผ่านสำเร็จ");
+          await onUpdateUsers(updated);
+          alert("เปลี่ยนรหัสผ่านและอัปเดตบน GitHub สำเร็จ");
         }
       };
 
@@ -455,7 +503,7 @@
               <div>
                 <div className="flex items-center gap-2" style={{ color: "#c1502e" }}>
                   <Icon name="layers" size={18} />
-                  <span className="text-xs font-bold tracking-[0.2em] uppercase">Korat Batching Plant</span>
+                  <span className="text-xs font-bold tracking-[0.2em] uppercase">Korat Batching Plant (GitHub Cloud Sync)</span>
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-black tracking-tight mt-1" style={{ color: "#23211d", fontFamily: "Georgia, serif" }}>
                   Mix Design
@@ -693,7 +741,7 @@
             <div className="flex flex-wrap gap-2 items-center">
               <button onClick={handleSave} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider cursor-pointer" style={{ background: "#23211d", color: "#f5f3ee" }}>
                 <Icon name="save" size={14} />
-                {saveState === "saving" ? "กำลังบันทึก..." : saveState === "saved" ? "บันทึกแล้ว ✓" : "บันทึกข้อมูล"}
+                {saveState === "saving" ? "กำลังบันทึกข้ามระบบ..." : saveState === "saved" ? "บันทึกขึ้น GitHub แล้ว ✓" : "บันทึกข้อมูล"}
               </button>
               <button onClick={handlePrint} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white" style={{ borderColor: "#23211d", color: "#23211d" }}>
                 <Icon name="printer" size={14} /> พิมพ์ / บันทึก PDF
@@ -706,7 +754,7 @@
                   
                   <div className="flex justify-between items-center mb-5 pb-3 border-b-2 border-[#23211d]">
                     <h3 className="text-base font-black uppercase text-[#23211d] flex items-center gap-2">
-                      <Icon name="shield" size={20} color="#c1502e" /> ระบบจัดการผู้ใช้งาน (SHA-256)
+                      <Icon name="shield" size={20} color="#c1502e" /> ระบบจัดการผู้ใช้งาน (GitHub Sync)
                     </h3>
                     <button onClick={() => setShowAdminModal(false)} className="text-[#78766e] hover:text-black font-bold text-lg cursor-pointer">✕</button>
                   </div>
@@ -740,7 +788,7 @@
                       </select>
                     </div>
                     <button type="submit" className="w-full bg-[#23211d] text-white py-2.5 text-xs font-bold uppercase rounded cursor-pointer hover:bg-black transition">
-                      บันทึกสร้าง User
+                      บันทึกสร้าง User ขึ้น GitHub
                     </button>
                   </form>
 
