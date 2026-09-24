@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Mix Design - Korat Batching Plant</title>
+
+  <!-- React & ReactDOM (Production Build) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    body { 
+      background-color: #efece2; 
+      -webkit-tap-highlight-color: transparent; 
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+      -webkit-appearance: none; 
+      margin: 0; 
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    // ตั้งค่า GitHub Repository
+    const GH_CONFIG = {
+      owner: "pongston",
+      repo: "mixdisign2",
+      branch: "main",
+      token: "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"
+    };
+
+    const MATERIAL_COLS = [
+      { key: "cement", label: "Cement" },
+      { key: "rock", label: "Rock" },
+      { key: "sand", label: "Sand" },
+      { key: "water", label: "Water" },
+      { key: "admix", label: "Admixture" },
+      { key: "admix2", label: "Admixture 2" },
+      { key: "flyash", label: "Fly Ash" },
+      { key: "air", label: "Air" },
+    ];
+
+    const GROUPS = {
+      A: { label: "A", short: "100%", desc: "วัตถุดิบเต็ม 100%", reduce: 0 },
+      B: { label: "B", short: "-3%", desc: "ลดทุกอย่างลง 3% (ยกเว้นน้ำ)", reduce: 0.03 },
+      C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
+    };
+
+    async function sha256(message) {
+      if (!message) return "";
+      try {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch (e) {
+        console.error("Crypto API error:", e);
+        return "";
+      }
+    }
+
+    async function fetchGitHubFile(path) {
+      try {
+        const url = `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${path}`;
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${GH_CONFIG.token}`,
+            Accept: "application/vnd.github.v3+json"
+          }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        const content = JSON.parse(decodeURIComponent(escape(window.atob(data.content))));
+        return { content, sha: data.sha };
+      } catch (e) {
+        console.error(`Error reading ${path}:`, e);
+        return null;
+      }
+    }
+
+    async function saveGitHubFile(path, contentObj, message) {
+      try {
+        const url = `https://api.github.com/repos/${GH_CONFIG.owner}/${GH_CONFIG.repo}/contents/${path}`;
+        const existing = await fetchGitHubFile(path);
+        const sha = existing ? existing.sha : undefined;
+
+        const contentString = JSON.stringify(contentObj, null, 2);
+        const encodedContent = btoa(unescape(encodeURIComponent(contentString)));
+
+        const bodyData = {
+          message: message || `Update ${path} via Korat Web App`,
+          content: encodedContent,
+          branch: GH_CONFIG.branch
+        };
+        if (sha) bodyData.sha = sha;
+
+        const res = await fetch(url, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${GH_CONFIG.token}`,
+            "Content-Type": "application/json",
+            Accept: "application/vnd.github.v3+json"
+          },
+          body: JSON.stringify(bodyData)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.message || "GitHub Save Failed");
+        }
+        return true;
+      } catch (e) {
+        console.error(`Error saving ${path}:`, e);
+        alert("บันทึกข้อมูลลง GitHub ไม่สำเร็จ: " + e.message);
+        return false;
+      }
+    }
+
+    function num(v) {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
+    }
+
+    let nextRowId = 4;
+    let nextAdjId = 1;
+
+    const seedRows = [
+      { id: 1, orderNo: "73593250", cement: 378, rock: 1080, sand: 855, water: 148, admix: 4800, admix2: 5800, flyash: 20, air: 0, qty: 18 },
+      { id: 2, orderNo: "30022121", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
+      { id: 3, orderNo: "83135901", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
+    ];
+
+    const Icon = ({ name, size = 18, color, className = "", style = {} }) => {
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      }, [name]);
+      return <i data-lucide={name} className={className} style={{ width: size, height: size, color, display: 'inline-block', ...style }}></i>;
+    };
+
+    function App() {
+      const [currentUser, setCurrentUser] = useState(null);
+      const [users, setUsers] = useState([]);
+      const [isInitialized, setIsInitialized] = useState(false);
+
+      useEffect(() => {
+        async function initUsers() {
+          try {
+            const remoteData = await fetchGitHubFile("users.json");
+            if (remoteData && remoteData.content && Array.isArray(remoteData.content) && remoteData.content.length > 0) {
+              setUsers(remoteData.content);
+            } else {
+              const adminHash = await sha256("Korat@2026#Secure");
+              const kenHash = await sha256("Ken");
+              const sikhioHash = await sha256("Sikhio2026");
+
+              const initial = [
+                { id: 1, username: "admin", passwordHash: adminHash, role: "ADMIN", active: true },
+                { id: 2, username: "Ken", passwordHash: kenHash, role: "USER", active: true },
+                { id: 3, username: "Sikhio", passwordHash: sikhioHash, role: "USER", active: true }
+              ];
+              setUsers(initial);
+              await saveGitHubFile("users.json", initial, "Initialize default users (admin, Ken, Sikhio)");
+            }
+          } catch (e) {
+            console.error("Init users error:", e);
+          }
+          setIsInitialized(true);
+        }
+        initUsers();
+      }, []);
+
+      const saveUsers = async (newUsers) => {
+        setUsers(newUsers);
+        await saveGitHubFile("users.json", newUsers, "Update users list");
+      };
+
+      if (!isInitialized) {
+        return (
+          <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white text-sm">
+            กำลังเชื่อมต่อฐานข้อมูล GitHub...
+          </div>
+        );
+      }
+
+      if (!currentUser) {
+        return <LoginPage users={users} onLogin={setCurrentUser} />;
+      }
+
+      return <MainDashboard currentUser={currentUser} users={users} onUpdateUsers={saveUsers} onLogout={() => setCurrentUser(null)} />;
+    }
+
+    function LoginPage({ users, onLogin }) {
+      const [username, setUsername] = useState("");
+      const [password, setPassword] = useState("");
+      const [error, setError] = useState("");
+      const [loading, setLoading] = useState(false);
+
+      const handleSignIn = async (e) => {
+        e.preventDefault();
+        setError("");
+
+        if (!username.trim() || !password) {
+          setError("⚠️ กรุณากรอก Username และ Password ให้ครบถ้วน");
+          return;
+        }
+
+        setLoading(true);
+        const inputHash = await sha256(password);
+        
+        const found = users.find(u => 
+          u.username.toLowerCase() === username.trim().toLowerCase() && 
+          u.passwordHash === inputHash
+        );
+
+        setLoading(false);
+
+        if (!found) {
+          setError("❌ ชื่อผู้ใช้งาน (Username) หรือ รหัสผ่าน (Password) ไม่ถูกต้อง");
+          return;
+        }
+
+        if (!found.active) {
+          setError("🚫 บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ");
+          return;
+        }
+
+        onLogin(found);
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-[#121212] relative overflow-hidden w-full p-4">
+          <div className="relative z-10 w-full max-w-sm rounded-3xl bg-gradient-to-r from-[#ffffff10] to-[#121212] backdrop-blur-md shadow-2xl p-8 flex flex-col items-center border border-white/10">
+            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white/20 mb-6 shadow-lg text-white">
+              <Icon name="layers" size={26} />
+            </div>
+            <h2 className="text-2xl font-semibold text-white mb-1 text-center">คำนวณ Mix Design Belly</h2>
+            <p className="text-xs text-gray-400 mb-6 text-center">เชื่อมต่อฐานข้อมูลกลางผ่าน GitHub</p>
+            
+            <form onSubmit={handleSignIn} className="flex flex-col w-full gap-4">
+              <div className="w-full flex flex-col gap-3">
+                <input
+                  placeholder="Username"
+                  type="text"
+                  value={username}
+                  className="w-full px-5 py-3 rounded-xl bg-white/10 text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  onChange={(e) => { setUsername(e.target.value); setError(""); }}
+                />
+                <input
+                  placeholder="Password"
+                  type="password"
+                  value={password}
+                  className="w-full px-5 py-3 rounded-xl bg-white/10 text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
+                />
+                
+                {error && (
+                  <div className="text-xs text-red-300 bg-red-950/80 border border-red-600/60 p-3 rounded-xl text-center leading-relaxed font-medium">
+                    {error}
+                  </div>
+                )}
+              </div>
+
+              <hr className="opacity-10 my-1" />
+              
+              <div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-white/15 text-white font-medium px-5 py-3 rounded-full shadow hover:bg-white/25 transition text-sm cursor-pointer"
+                >
+                  {loading ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      );
+    }
+
+    function MainDashboard({ currentUser, users, onUpdateUsers, onLogout }) {
+      const [group, setGroup] = useState("A");
+      const [rows, setRows] = useState(seedRows);
+      const [showAdjust, setShowAdjust] = useState(false);
+      const [adjustments, setAdjustments] = useState([]);
+      const [saveState, setSaveState] = useState("idle");
+
+      const [draftOrderId, setDraftOrderId] = useState(null);
+      const [draftMaterial, setDraftMaterial] = useState(MATERIAL_COLS[0].key);
+      const [draftSign, setDraftSign] = useState("add");
+      const [draftValue, setDraftValue] = useState("");
+      const [draftQty, setDraftQty] = useState("");
+
+      const [showAdminModal, setShowAdminModal] = useState(false);
+      const [newUsername, setNewUsername] = useState("");
+      const [newPassword, setNewPassword] = useState("");
+      const [newRole, setNewRole] = useState("USER");
+
+      const isAdmin = currentUser.role.toUpperCase() === 'ADMIN';
+      const reduce = GROUPS[group].reduce;
+
+      useEffect(() => {
+        async function loadMixData() {
+          const remote = await fetchGitHubFile("mixdata.json");
+          if (remote && remote.content) {
+            const data = remote.content;
+            if (data.rows && data.rows.length) {
+              setRows(data.rows);
+              nextRowId = Math.max(...data.rows.map((r) => r.id)) + 1;
+            }
+            if (data.group) setGroup(data.group);
+            if (data.adjustments) {
+              setAdjustments(data.adjustments);
+              nextAdjId = data.adjustments.length ? Math.max(...data.adjustments.map((a) => a.id)) + 1 : 1;
+            }
+          }
+        }
+        loadMixData();
+      }, []);
+
+      useEffect(() => {
+        if (rows.length && (draftOrderId === null || !rows.some(r => r.id === draftOrderId))) {
+          setDraftOrderId(rows[0].id);
+        }
+      }, [rows, draftOrderId]);
+
+      const baseResults = useMemo(() => {
+        return rows.map((r) => {
+          const qty = num(r.qty);
+          const out = {};
+          MATERIAL_COLS.forEach((c) => {
+            const val = num(r[c.key]);
+            out[c.key] = c.key === "water" ? val * qty : val * qty * (1 - reduce) * 0.001;
+          });
+          return out;
+        });
+      }, [rows, reduce]);
+
+      function adjustmentContribution(orderId, materialKey) {
+        return adjustments
+          .filter((a) => a.orderId === orderId && a.material === materialKey)
+          .reduce((sum, a) => {
+            const raw = materialKey === "water" ? a.value * a.qty : a.value * a.qty * (1 - reduce) * 0.001;
+            return sum + (a.sign === "reduce" ? -raw : raw);
+          }, 0);
+      }
+
+      const finalResults = useMemo(() => {
+        return rows.map((r, i) => {
+          const out = {};
+          MATERIAL_COLS.forEach((c) => {
+            out[c.key] = baseResults[i][c.key] + adjustmentContribution(r.id, c.key);
+          });
+          return out;
+        });
+      }, [baseResults, adjustments, reduce]);
+
+      const totals = useMemo(() => {
+        const t = {};
+        MATERIAL_COLS.forEach((c) => (t[c.key] = 0));
+        finalResults.forEach((r) => MATERIAL_COLS.forEach((c) => (t[c.key] += r[c.key])));
+        return t;
+      }, [finalResults]);
+
+      function updateRow(id, key, value) {
+        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+      }
+
+      function addRow() {
+        const blank = { id: nextRowId++, orderNo: "", qty: 0 };
+        MATERIAL_COLS.forEach((c) => (blank[c.key] = 0));
+        setRows((prev) => [...prev, blank]);
+      }
+
+      function removeRow(id) {
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        setAdjustments((prev) => prev.filter((a) => a.orderId !== id));
+      }
+
+      function addAdjustment() {
+        const v = num(draftValue);
+        const q = num(draftQty);
+        if (!draftOrderId || v === 0 || q === 0) return;
+        setAdjustments((prev) => [
+          ...prev,
+          { id: nextAdjId++, orderId: draftOrderId, material: draftMaterial, sign: draftSign, value: v, qty: q },
+        ]);
+        setDraftValue("");
+        setDraftQty("");
+      }
+
+      async function handleSave() {
+        setSaveState("saving");
+        const success = await saveGitHubFile("mixdata.json", { rows, group, adjustments }, "Update mix design data");
+        if (success) {
+          setSaveState("saved");
+          setTimeout(() => setSaveState("idle"), 1800);
+        } else {
+          setSaveState("idle");
+        }
+      }
+
+      function buildReportHTML() {
+        const groupInfo = GROUPS[group];
+        const rowsHtml = rows.map((r) => {
+          const cells = MATERIAL_COLS.map((c) => `<td>${num(r[c.key])}</td>`).join("");
+          return `<tr><td>${r.orderNo || "—"}</td>${cells}<td>${r.qty}</td></tr>`;
+        }).join("");
+        const resultRowsHtml = rows.map((r, i) => {
+          const cells = MATERIAL_COLS.map((c) => `<td>${finalResults[i][c.key].toFixed(3)}</td>`).join("");
+          return `<tr><td>${r.orderNo || "—"}</td>${cells}</tr>`;
+        }).join("");
+        const totalCells = MATERIAL_COLS.map((c) => `<td><b>${totals[c.key].toFixed(3)}</b></td>`).join("");
+        const adjRowsHtml = adjustments.map((a) => {
+          const rIdx = rows.findIndex((r) => r.id === a.orderId);
+          const orderLabel = rIdx >= 0 ? rows[rIdx].orderNo || "—" : "—";
+          const matLabel = MATERIAL_COLS.find((c) => c.key === a.material)?.label;
+          return `<tr><td>${orderLabel}</td><td>${matLabel}</td><td>${a.sign === "reduce" ? "-" : "+"}${a.value}</td><td>${a.qty}</td></tr>`;
+        }).join("");
+
+        return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Mix Design Report</title>
+        <style>body{font-family:Arial,sans-serif;color:#23211d;padding:24px;}h1{margin-bottom:0;}.sub{color:#78766e;margin-top:4px;margin-bottom:20px;font-size:13px;}table{border-collapse:collapse;width:100%;margin-bottom:24px;font-size:12px;}th,td{border:1px solid #999;padding:5px 8px;text-align:right;}th:first-child,td:first-child{text-align:left;}th{background:#23211d;color:#fff;}h2{font-size:14px;text-transform:uppercase;color:#78766e;border-bottom:2px solid #23211d;padding-bottom:4px;}</style></head>
+        <body><h1>Mix Design — Korat Batching Plant</h1><div class="sub">คำนวณมิกซ์ By Pongston | Group ${groupInfo.label} | ผู้ใช้งาน: ${currentUser.username}</div>
+        <h2>วัตถุดิบต่อหน่วย (kg)</h2><table><tr><th>Order</th>${MATERIAL_COLS.map((c) => `<th>${c.label}</th>`).join("")}<th>จำนวน</th></tr>${rowsHtml}</table>
+        ${adjustments.length ? `<h2>รายการปรับวัตถุดิบ</h2><table><tr><th>Order</th><th>วัตถุดิบ</th><th>ค่า</th><th>คิว</th></tr>${adjRowsHtml}</table>` : ""}
+        <h2>ผลลัพธ์ (ตัน / kg)</h2><table><tr><th>Order</th>${MATERIAL_COLS.map((c) => `<th>${c.label}</th>`).join("")}</tr>${resultRowsHtml}<tr><td><b>รวม</b></td>${totalCells}</tr></table></body></html>`;
+      }
+
+      function handlePrint() {
+        const html = buildReportHTML();
+        const blob = new Blob([html], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `mix-design-${Date.now()}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      const handleCreateUser = async (e) => {
+        e.preventDefault();
+        if (!newUsername || !newPassword) return;
+        if (users.some(u => u.username.toLowerCase() === newUsername.trim().toLowerCase())) {
+          alert("Username นี้มีผู้ใช้งานแล้วในระบบ");
+          return;
+        }
+        const passwordHash = await sha256(newPassword);
+        const updated = [...users, { id: Date.now(), username: newUsername.trim(), passwordHash, role: newRole, active: true }];
+        await onUpdateUsers(updated);
+        setNewUsername("");
+        setNewPassword("");
+        alert("สร้าง User และบันทึกลง GitHub สำเร็จแล้ว");
+      };
+
+      const handleToggleActive = async (id) => {
+        const updated = users.map(u => u.id === id ? { ...u, active: !u.active } : u);
+        await onUpdateUsers(updated);
+      };
+
+      const handleDeleteUser = async (id) => {
+        const target = users.find(u => u.id === id);
+        if (target && target.username.toLowerCase() === 'admin' && users.filter(u => u.role.toUpperCase() === 'ADMIN').length <= 1) {
+          alert("ไม่สามารถลบบัญชี Administrator หลักตัวสุดท้ายของระบบได้");
+          return;
+        }
+        if (confirm(`คุณต้องการลบผู้ใช้งาน "${target?.username}" ใช่หรือไม่?`)) {
+          const updated = users.filter(u => u.id !== id);
+          await onUpdateUsers(updated);
+        }
+      };
+
+      const handleChangePassword = async (id, username) => {
+        const p = prompt(`กำหนดรหัสผ่านใหม่สำหรับผู้ใช้งาน: ${username}`, "");
+        if (p !== null) {
+          if (!p.trim()) {
+            alert("รหัสผ่านไม่สามารถเป็นค่าว่างได้");
+            return;
+          }
+          const passwordHash = await sha256(p);
+          const updated = users.map(u => u.id === id ? { ...u, passwordHash } : u);
+          await onUpdateUsers(updated);
+          alert("เปลี่ยนรหัสผ่านและอัปเดตบน GitHub สำเร็จ");
+        }
+      };
+
+      const orderOptions = rows.map((r, i) => ({ id: r.id, label: `${i + 1}. ${r.orderNo || "(ไม่ระบุเลขที่)"}` }));
+
+      return (
+        <div className="min-h-screen w-full" style={{ background: "#efece2" }}>
+          <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-10">
+            
+            <div className="flex items-start justify-between gap-4 mb-5 border-b-2 pb-4" style={{ borderColor: "#23211d" }}>
+              <div>
+                <div className="flex items-center gap-2" style={{ color: "#c1502e" }}>
+                  <Icon name="layers" size={18} />
+                  <span className="text-xs font-bold tracking-[0.2em] uppercase">Korat Batching Plant (GitHub Cloud Sync)</span>
+                </div>
+                <h1 className="text-3xl sm:text-4xl font-black tracking-tight mt-1" style={{ color: "#23211d", fontFamily: "Georgia, serif" }}>
+                  Mix Design
+                </h1>
+                <p className="text-xs mt-1" style={{ color: "#78766e" }}>คำนวณมิกซ์ By Pongston</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="text-xs font-bold" style={{ color: "#23211d" }}>👤 {currentUser.username}</div>
+                  <div className="text-[10px] px-1.5 py-0.5 rounded inline-block font-bold mt-0.5" style={{ background: isAdmin ? '#c1502e' : '#2e7d46', color: '#fff' }}>
+                    {currentUser.role.toUpperCase()}
+                  </div>
+                </div>
+                
+                {isAdmin && (
+                  <button
+                    onClick={() => setShowAdminModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase border-2 bg-white cursor-pointer hover:bg-gray-50 shadow-xs"
+                    style={{ borderColor: "#23211d", color: "#23211d" }}
+                  >
+                    <Icon name="shield" size={14} color="#c1502e" /> จัดการ User
+                  </button>
+                )}
+
+                <button
+                  onClick={onLogout}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase border-2 bg-[#23211d] text-white cursor-pointer hover:bg-black shadow-xs"
+                  style={{ borderColor: "#23211d" }}
+                >
+                  <Icon name="log-out" size={14} /> ออก
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 mb-6 flex-wrap">
+              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>Group</span>
+              <div className="inline-flex border-2" style={{ borderColor: "#23211d" }}>
+                {Object.entries(GROUPS).map(([key, g], idx) => {
+                  const active = group === key;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setGroup(key)}
+                      className="px-3 py-1.5 text-sm font-bold transition-colors cursor-pointer"
+                      style={{
+                        background: active ? "#23211d" : "#ffffff",
+                        color: active ? "#f5f3ee" : "#23211d",
+                        borderLeft: idx === 0 ? "none" : "1px solid #23211d",
+                      }}
+                      title={g.desc}
+                    >
+                      {g.label}. <span style={{ color: active ? "#e8916b" : "#c1502e" }}>{g.short}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-xs" style={{ color: "#a09d92" }}>{GROUPS[group].desc}</span>
+            </div>
+
+            <div className="mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>
+              วัตถุดิบต่อหน่วย (kg) — แก้ไขได้
+            </div>
+            <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
+              <table className="w-full text-sm" style={{ minWidth: 920 }}>
+                <thead>
+                  <tr style={{ background: "#23211d", color: "#f5f3ee" }}>
+                    <th className="text-left px-3 py-2 font-semibold sticky left-0" style={{ background: "#23211d", minWidth: 120 }}>เลขที่ Order</th>
+                    {MATERIAL_COLS.map((c) => (
+                      <th key={c.key} className="text-right px-3 py-2 font-semibold" style={{ minWidth: 90 }}>{c.label}</th>
+                    ))}
+                    <th className="text-right px-3 py-2 font-semibold" style={{ minWidth: 80 }}>จำนวน</th>
+                    <th className="px-2 py-2" style={{ minWidth: 44 }}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
+                      <td className="px-3 py-1.5 sticky left-0" style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0" }}>
+                        <input
+                          value={r.orderNo}
+                          onChange={(e) => updateRow(r.id, "orderNo", e.target.value)}
+                          className="w-full bg-transparent outline-none font-mono text-xs"
+                          style={{ color: "#23211d" }}
+                          placeholder="—"
+                        />
+                      </td>
+                      {MATERIAL_COLS.map((c) => (
+                        <td key={c.key} className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            value={r[c.key]}
+                            onChange={(e) => updateRow(r.id, c.key, e.target.value)}
+                            className="w-full bg-transparent outline-none text-right font-mono"
+                            style={{ color: c.key === "air" ? "#c1502e" : "#23211d" }}
+                          />
+                        </td>
+                      ))}
+                      <td className="px-2 py-1.5">
+                        <input
+                          type="number"
+                          value={r.qty}
+                          onChange={(e) => updateRow(r.id, "qty", e.target.value)}
+                          className="w-full bg-transparent outline-none text-right font-mono font-semibold"
+                          style={{ color: "#23211d" }}
+                        />
+                      </td>
+                      <td className="px-2 py-1.5 text-center">
+                        <button onClick={() => removeRow(r.id)} title="ลบแถว" style={{ color: "#78766e" }} className="cursor-pointer">
+                          <Icon name="trash-2" size={15} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <button
+              onClick={addRow}
+              className="mb-6 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white"
+              style={{ borderColor: "#23211d", color: "#23211d" }}
+            >
+              <Icon name="plus" size={14} /> เพิ่มแถว
+            </button>
+
+            <div className="mb-6 border-2" style={{ borderColor: "#23211d", background: "#ffffff" }}>
+              <div className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none" onClick={() => setShowAdjust((s) => !s)}>
+                <span className="w-5 h-5 flex items-center justify-center border-2 shrink-0" style={{ borderColor: "#23211d", background: showAdjust ? "#c1502e" : "#ffffff" }}>
+                  {showAdjust && <Icon name="check" size={13} color="#fff" />}
+                </span>
+                <span className="text-sm font-bold" style={{ color: "#23211d" }}>ปรับวัตถุดิบเพิ่มเติมรายออเดอร์</span>
+                <Icon name="chevron-down" size={16} className="ml-auto transition-transform" style={{ color: "#78766e", transform: showAdjust ? "rotate(180deg)" : "none" }} />
+              </div>
+
+              {showAdjust && (
+                <div className="px-4 pb-4 pt-1 border-t-2" style={{ borderColor: "#e3e0d5" }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>1. ออเดอร์</div>
+                      <select
+                        value={draftOrderId ?? ""}
+                        onChange={(e) => setDraftOrderId(Number(e.target.value))}
+                        className="w-full border-2 px-2 py-1.5 text-sm bg-white"
+                        style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                      >
+                        {orderOptions.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>2. ชนิดวัตถุดิบ</div>
+                      <select
+                        value={draftMaterial}
+                        onChange={(e) => setDraftMaterial(e.target.value)}
+                        className="w-full border-2 px-2 py-1.5 text-sm bg-white"
+                        style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                      >
+                        {MATERIAL_COLS.map((c) => (<option key={c.key} value={c.key}>{c.label}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>3. ค่า (กก.) / คิว</div>
+                      <div className="flex gap-1">
+                        <select
+                          value={draftSign}
+                          onChange={(e) => setDraftSign(e.target.value)}
+                          className="border-2 px-1 py-1.5 text-sm bg-white shrink-0"
+                          style={{ borderColor: "#d8d5cb", color: draftSign === "reduce" ? "#c1502e" : "#2e7d46" }}
+                        >
+                          <option value="add">เพิ่ม +</option>
+                          <option value="reduce">ลด −</option>
+                        </select>
+                        <input
+                          type="number"
+                          value={draftValue}
+                          onChange={(e) => setDraftValue(e.target.value)}
+                          placeholder="ค่า"
+                          className="w-full border-2 px-2 py-1.5 text-sm font-mono"
+                          style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                        />
+                        <input
+                          type="number"
+                          value={draftQty}
+                          onChange={(e) => setDraftQty(e.target.value)}
+                          placeholder="คิว"
+                          className="w-full border-2 px-2 py-1.5 text-sm font-mono"
+                          style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-end">
+                      <button onClick={addAdjustment} className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider cursor-pointer" style={{ background: "#23211d", color: "#f5f3ee" }}>
+                        เพิ่มรายการปรับ
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>
+              ผลลัพธ์ (Group {group} · {GROUPS[group].short}) — ตัน / kg
+            </div>
+            <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
+              <table className="w-full text-sm" style={{ minWidth: 820 }}>
+                <thead>
+                  <tr style={{ background: "#c1502e", color: "#f5f3ee" }}>
+                    <th className="text-left px-3 py-2 font-semibold sticky left-0" style={{ background: "#c1502e", minWidth: 120 }}>เลขที่ Order</th>
+                    {MATERIAL_COLS.map((c) => (
+                      <th key={c.key} className="text-right px-3 py-2 font-semibold" style={{ minWidth: 100 }}>{c.label} ผลลัพธ์</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
+                      <td className="px-3 py-1.5 font-mono text-xs sticky left-0" style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0" }}>{r.orderNo || "—"}</td>
+                      {MATERIAL_COLS.map((c) => (
+                        <td key={c.key} className="px-3 py-1.5 text-right font-mono">
+                          {finalResults[i][c.key].toFixed(3)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                  <tr style={{ borderTop: "2px solid #23211d", background: "#f0eee6" }}>
+                    <td className="px-3 py-2 font-bold text-xs uppercase sticky left-0" style={{ background: "#f0eee6", color: "#23211d" }}>รวม / Total</td>
+                    {MATERIAL_COLS.map((c) => (
+                      <td key={c.key} className="px-3 py-2 text-right font-mono font-bold" style={{ color: "#c1502e" }}>{totals[c.key].toFixed(3)}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex flex-wrap gap-2 items-center">
+              <button onClick={handleSave} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider cursor-pointer" style={{ background: "#23211d", color: "#f5f3ee" }}>
+                <Icon name="save" size={14} />
+                {saveState === "saving" ? "กำลังบันทึกข้ามระบบ..." : saveState === "saved" ? "บันทึกขึ้น GitHub แล้ว ✓" : "บันทึกข้อมูล"}
+              </button>
+              <button onClick={handlePrint} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white" style={{ borderColor: "#23211d", color: "#23211d" }}>
+                <Icon name="printer" size={14} /> พิมพ์ / บันทึก PDF
+              </button>
+            </div>
+
+            {showAdminModal && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+                <div className="bg-[#fcfbfa] border-2 border-[#23211d] max-w-xl w-full rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+                  
+                  <div className="flex justify-between items-center mb-5 pb-3 border-b-2 border-[#23211d]">
+                    <h3 className="text-base font-black uppercase text-[#23211d] flex items-center gap-2">
+                      <Icon name="shield" size={20} color="#c1502e" /> ระบบจัดการผู้ใช้งาน (GitHub Sync)
+                    </h3>
+                    <button onClick={() => setShowAdminModal(false)} className="text-[#78766e] hover:text-black font-bold text-lg cursor-pointer">✕</button>
+                  </div>
+
+                  <form onSubmit={handleCreateUser} className="mb-6 p-4 border-2 border-[#d8d5cb] bg-white rounded-xl shadow-xs">
+                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3 text-[#23211d]">➕ สร้างบัญชีผู้ใช้งานใหม่</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
+                      <input
+                        type="text"
+                        placeholder="Username"
+                        value={newUsername}
+                        onChange={e => setNewUsername(e.target.value)}
+                        className="border-2 border-[#d8d5cb] px-3 py-2 text-sm rounded focus:outline-none focus:border-[#23211d]"
+                        required
+                      />
+                      <input
+                        type="password"
+                        placeholder="Password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        className="border-2 border-[#d8d5cb] px-3 py-2 text-sm rounded focus:outline-none focus:border-[#23211d]"
+                        required
+                      />
+                      <select
+                        value={newRole}
+                        onChange={e => setNewRole(e.target.value)}
+                        className="border-2 border-[#d8d5cb] px-3 py-2 text-sm rounded bg-white font-bold"
+                      >
+                        <option value="USER">USER</option>
+                        <option value="ADMIN">ADMIN</option>
+                      </select>
+                    </div>
+                    <button type="submit" className="w-full bg-[#23211d] text-white py-2.5 text-xs font-bold uppercase rounded cursor-pointer hover:bg-black transition">
+                      บันทึกสร้าง User ขึ้น GitHub
+                    </button>
+                  </form>
+
+                  <h4 className="text-xs font-bold uppercase tracking-wider mb-2 text-[#78766e]">📋 รายชื่อผู้ใช้งานในระบบ ({users.length})</h4>
+                  <div className="border-2 border-[#23211d] rounded-xl overflow-hidden bg-white">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#23211d] text-white">
+                        <tr>
+                          <th className="p-3">Username</th>
+                          <th className="p-3">Role</th>
+                          <th className="p-3 text-center">สถานะ</th>
+                          <th className="p-3 text-right">การจัดการ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map(u => (
+                          <tr key={u.id} className="border-t border-[#e3e0d5]">
+                            <td className="p-3 font-bold font-mono">{u.username}</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.role.toUpperCase() === 'ADMIN' ? 'bg-[#c1502e] text-white' : 'bg-gray-200 text-gray-800'}`}>
+                                {u.role.toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <button
+                                onClick={() => handleToggleActive(u.id)}
+                                className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition ${u.active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
+                                title="คลิกเพื่อสลับสถานะ เปิด/ปิด"
+                              >
+                                {u.active ? '🟢 เปิดใช้งาน' : '🔴 ปิดใช้งาน'}
+                              </button>
+                            </td>
+                            <td className="p-3 text-right space-x-1">
+                              <button
+                                onClick={() => handleChangePassword(u.id, u.username)}
+                                className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[11px] font-bold cursor-pointer text-[#23211d]"
+                                title="เปลี่ยนรหัสผ่าน"
+                              >
+                                เปลี่ยนรหัส
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id)}
+                                className="px-2.5 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded text-[11px] font-bold cursor-pointer"
+                                title="ลบบัญชี"
+                              >
+                                ลบ
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-6 text-right">
+                    <button
+                      onClick={() => setShowAdminModal(false)}
+                      className="px-5 py-2.5 bg-[#23211d] text-white text-xs font-bold uppercase rounded cursor-pointer hover:bg-black"
+                    >
+                      ปิดหน้าต่าง
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
