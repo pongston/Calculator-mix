@@ -1,0 +1,45 @@
+{
+  "rows": [
+    {
+      "id": 1,
+      "orderNo": "73593250",
+      "cement": 378,
+      "rock": 1080,
+      "sand": 855,
+      "water": 148,
+      "admix": 4800,
+      "admix2": 5800,
+      "flyash": 20,
+      "air": 0,
+      "qty": 18
+    },
+    {
+      "id": 2,
+      "orderNo": "30022121",
+      "cement": 0,
+      "rock": 0,
+      "sand": 0,
+      "water": 0,
+      "admix": 0,
+      "admix2": 0,
+      "flyash": 0,
+      "air": 0,
+      "qty": 0
+    },
+    {
+      "id": 3,
+      "orderNo": "83135901",
+      "cement": 0,
+      "rock": 0,
+      "sand": 0,
+      "water": 0,
+      "admix": 0,
+      "admix2": 0,
+      "flyash": 0,
+      "air": 0,
+      "qty": 0
+    }
+  ],
+  "group": "A",
+  "adjustments": []
+}
