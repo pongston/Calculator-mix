@@ -36,13 +36,7 @@
   <script type="text/babel">
     const { useState, useMemo, useEffect } = React;
 
-    const Icon = ({ name, size = 18, color, className = "", style = {} }) => {
-      useEffect(() => {
-        if (window.lucide) window.lucide.createIcons();
-      }, [name]);
-      return <i data-lucide={name} className={className} style={{ width: size, height: size, color, display: 'inline-block', ...style }}></i>;
-    };
-
+    // --- UTILS & CONSTANTS ---
     const MATERIAL_COLS = [
       { key: "cement", label: "Cement" },
       { key: "rock", label: "Rock" },
@@ -60,16 +54,25 @@
       C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
     };
 
-    const STORAGE_KEY = "korat_mix_design_secure_v7";
+    const STORAGE_KEY = "korat_mix_design_data_v7";
     const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v7";
 
-    // ฟังก์ชันแปลงข้อความให้เป็น SHA-256 Hash
     async function sha256(message) {
       if (!message) return "";
-      const msgBuffer = new TextEncoder().encode(message);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      try {
+        const msgBuffer = new TextEncoder().encode(message);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch (e) {
+        console.error("Crypto API error:", e);
+        return "";
+      }
+    }
+
+    function num(v) {
+      const n = parseFloat(v);
+      return isNaN(n) ? 0 : n;
     }
 
     let nextRowId = 4;
@@ -81,11 +84,14 @@
       { id: 3, orderNo: "83135901", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
     ];
 
-    function num(v) {
-      const n = parseFloat(v);
-      return isNaN(n) ? 0 : n;
-    }
+    const Icon = ({ name, size = 18, color, className = "", style = {} }) => {
+      useEffect(() => {
+        if (window.lucide) window.lucide.createIcons();
+      }, [name]);
+      return <i data-lucide={name} className={className} style={{ width: size, height: size, color, display: 'inline-block', ...style }}></i>;
+    };
 
+    // --- MAIN APP ---
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
       const [users, setUsers] = useState([]);
@@ -98,7 +104,6 @@
             if (savedUsers) {
               setUsers(JSON.parse(savedUsers));
             } else {
-              // สร้างแอดมินเริ่มต้นด้วยรหัสผ่านตั้งต้นที่มีความปลอดภัย (แนะนำให้เปลี่ยนทันทีหลังเข้าสู่ระบบครั้งแรก)
               const defaultPassHash = await sha256("Korat@2026#Secure");
               const initial = [
                 { id: 1, username: "admin", passwordHash: defaultPassHash, role: "ADMIN", active: true }
@@ -107,7 +112,7 @@
               localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initial));
             }
           } catch (e) {
-            console.error(e);
+            console.error("Init users error:", e);
           }
           setIsInitialized(true);
         }
@@ -119,12 +124,16 @@
         try {
           localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(newUsers));
         } catch (e) {
-          console.error(e);
+          console.error("Save users error:", e);
         }
       };
 
       if (!isInitialized) {
-        return <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white text-sm">Loading System...</div>;
+        return (
+          <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white text-sm">
+            Loading System...
+          </div>
+        );
       }
 
       if (!currentUser) {
@@ -134,6 +143,7 @@
       return <MainDashboard currentUser={currentUser} users={users} onUpdateUsers={saveUsers} onLogout={() => setCurrentUser(null)} />;
     }
 
+    // --- LOGIN PAGE ---
     function LoginPage({ users, onLogin }) {
       const [username, setUsername] = useState("");
       const [password, setPassword] = useState("");
@@ -179,7 +189,7 @@
               <Icon name="layers" size={26} />
             </div>
             <h2 className="text-2xl font-semibold text-white mb-1 text-center">คำนวณ Mix Design Belly</h2>
-            <p className="text-xs text-gray-400 mb-6 text-center">UserและPassword ติดต่อ Pongston</p>
+            <p className="text-xs text-gray-400 mb-6 text-center">User และ Password ติดต่อ Pongston</p>
             
             <form onSubmit={handleSignIn} className="flex flex-col w-full gap-4">
               <div className="w-full flex flex-col gap-3">
@@ -213,7 +223,7 @@
                   disabled={loading}
                   className="w-full bg-white/15 text-white font-medium px-5 py-3 rounded-full shadow hover:bg-white/25 transition text-sm cursor-pointer"
                 >
-                  {loading ? "กำลังตรวจสอบ..." : "เข้าป๊ายเลยครับ"}
+                  {loading ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ"}
                 </button>
               </div>
             </form>
@@ -222,6 +232,7 @@
       );
     }
 
+    // --- MAIN DASHBOARD ---
     function MainDashboard({ currentUser, users, onUpdateUsers, onLogout }) {
       const [group, setGroup] = useState("A");
       const [rows, setRows] = useState(seedRows);
@@ -229,7 +240,6 @@
       const [adjustments, setAdjustments] = useState([]);
       const [saveState, setSaveState] = useState("idle");
       const [saveError, setSaveError] = useState("");
-      const [storageAvailable, setStorageAvailable] = useState(true);
 
       const [draftOrderId, setDraftOrderId] = useState(null);
       const [draftMaterial, setDraftMaterial] = useState(MATERIAL_COLS[0].key);
@@ -261,12 +271,14 @@
             }
           }
         } catch (e) {
-          setStorageAvailable(false);
+          console.error("Load data error:", e);
         }
       }, []);
 
       useEffect(() => {
-        if (rows.length && draftOrderId === null) setDraftOrderId(rows[0].id);
+        if (rows.length && (draftOrderId === null || !rows.some(r => r.id === draftOrderId))) {
+          setDraftOrderId(rows[0].id);
+        }
       }, [rows, draftOrderId]);
 
       const baseResults = useMemo(() => {
@@ -418,7 +430,7 @@
       };
 
       const handleChangePassword = async (id, username) => {
-        const p = prompt(`กำหนดรหัสผ่านใหม่ (SHA-256) สำหรับผู้ใช้งาน: ${username}`, "");
+        const p = prompt(`กำหนดรหัสผ่านใหม่สำหรับผู้ใช้งาน: ${username}`, "");
         if (p !== null) {
           if (!p.trim()) {
             alert("รหัสผ่านไม่สามารถเป็นค่าว่างได้");
@@ -693,7 +705,7 @@
               </button>
             </div>
 
-            {/* 👑 ADMIN MANAGEMENT MODAL */}
+            {/* ADMIN MANAGEMENT MODAL */}
             {showAdminModal && (
               <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
                 <div className="bg-[#fcfbfa] border-2 border-[#23211d] max-w-xl w-full rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
