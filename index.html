@@ -3,39 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Mix Design - Korat Batching Plant</title>
-
-  <!-- React & ReactDOM (Production Build) -->
+  <meta name="theme-color" content="#121212">
+  <title>Mix Design - Korat Batching Plant V11</title>
+  <!-- React -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Babel Standalone -->
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
-  <!-- Tailwind CSS CDN -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Lucide Icons -->
+  <!-- Lucide -->
   <script src="https://unpkg.com/lucide@latest"></script>
-
   <style>
-    body { 
-      background-color: #efece2; 
-      -webkit-tap-highlight-color: transparent; 
+    * {
+      box-sizing: border-box;
     }
-    input[type=number]::-webkit-inner-spin-button, 
-    input[type=number]::-webkit-outer-spin-button { 
-      -webkit-appearance: none; 
-      margin: 0; 
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+    body {
+      background: #efece2;
+      -webkit-tap-highlight-color: transparent;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    button,
+    input,
+    select {
+      font-family: inherit;
+    }
+    ::selection {
+      background: #c1502e;
+      color: white;
+    }
+    .shadow-xs {
+      box-shadow: 0 1px 2px rgba(0,0,0,.05);
+    }
+    .login-bg {
+      background:
+        radial-gradient(circle at 20% 20%, rgba(193,80,46,.12), transparent 30%),
+        radial-gradient(circle at 80% 80%, rgba(255,255,255,.05), transparent 35%),
+        #121212;
+    }
+    .login-card {
+      box-shadow:
+        0 30px 80px rgba(0,0,0,.45),
+        inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .table-input:focus {
+      outline: none;
+      background: rgba(193,80,46,.06);
+    }
+    .modal-scroll {
+      scrollbar-width: thin;
+    }
+    @media print {
+      body {
+        background: white !important;
+      }
+      .no-print {
+        display: none !important;
+      }
     }
   </style>
 </head>
 <body>
   <div id="root"></div>
-
   <script type="text/babel">
-    const { useState, useMemo, useEffect } = React;
-
+    const {
+      useState,
+      useMemo,
+      useEffect
+    } = React;
+    /* =========================================================
+       CONFIGURATION
+    ========================================================= */
+    const APP_VERSION = "11.0";
     const MATERIAL_COLS = [
       { key: "cement", label: "Cement" },
       { key: "rock", label: "Rock" },
@@ -44,773 +94,2720 @@
       { key: "admix", label: "Admixture" },
       { key: "admix2", label: "Admixture 2" },
       { key: "flyash", label: "Fly Ash" },
-      { key: "air", label: "Air" },
+      { key: "air", label: "Air" }
     ];
-
     const GROUPS = {
-      A: { label: "A", short: "100%", desc: "วัตถุดิบเต็ม 100%", reduce: 0 },
-      B: { label: "B", short: "-3%", desc: "ลดทุกอย่างลง 3% (ยกเว้นน้ำ)", reduce: 0.03 },
-      C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 },
-    };
-
-    const STORAGE_KEY = "korat_mix_design_data_v10";
-    const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v10";
-
-    async function sha256(message) {
-      if (!message) return "";
-      try {
-        const msgBuffer = new TextEncoder().encode(message);
-        const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      } catch (e) {
-        console.error("Crypto API error:", e);
-        return "";
+      A: {
+        label: "A",
+        short: "100%",
+        desc: "วัตถุดิบเต็ม 100%",
+        reduce: 0
+      },
+      B: {
+        label: "B",
+        short: "-3%",
+        desc: "ลดทุกอย่างลง 3% (ยกเว้นน้ำ)",
+        reduce: 0.03
+      },
+      C: {
+        label: "C",
+        short: "-5%",
+        desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)",
+        reduce: 0.05
       }
-    }
-
-    function num(v) {
-      const n = parseFloat(v);
-      return isNaN(n) ? 0 : n;
-    }
-
+    };
+    /*
+      Version 11 storage keys
+      ---------------------------------------------------------
+      ใช้ key ใหม่ เพื่อไม่ให้ข้อมูล user จาก Version เก่าปะปน
+    */
+    const STORAGE_KEY = "korat_mix_design_data_v11";
+    const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v11";
+    /*
+      บัญชีเริ่มต้น
+      ---------------------------------------------------------
+      admin  / Ppb
+      Ken    / Ken
+      Sikhio / Sikhio2026
+    */
+    const DEFAULT_ACCOUNTS = [
+      {
+        id: 1,
+        username: "admin",
+        password: "Ppb",
+        role: "ADMIN",
+        active: true
+      },
+      {
+        id: 2,
+        username: "Ken",
+        password: "Ken",
+        role: "USER",
+        active: true
+      },
+      {
+        id: 3,
+        username: "Sikhio",
+        password: "Sikhio2026",
+        role: "USER",
+        active: true
+      }
+    ];
     let nextRowId = 4;
     let nextAdjId = 1;
-
     const seedRows = [
-      { id: 1, orderNo: "73593250", cement: 378, rock: 1080, sand: 855, water: 148, admix: 4800, admix2: 5800, flyash: 20, air: 0, qty: 18 },
-      { id: 2, orderNo: "30022121", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
-      { id: 3, orderNo: "83135901", cement: 0, rock: 0, sand: 0, water: 0, admix: 0, admix2: 0, flyash: 0, air: 0, qty: 0 },
+      {
+        id: 1,
+        orderNo: "73593250",
+        cement: 378,
+        rock: 1080,
+        sand: 855,
+        water: 148,
+        admix: 4800,
+        admix2: 5800,
+        flyash: 20,
+        air: 0,
+        qty: 18
+      },
+      {
+        id: 2,
+        orderNo: "30022121",
+        cement: 0,
+        rock: 0,
+        sand: 0,
+        water: 0,
+        admix: 0,
+        admix2: 0,
+        flyash: 0,
+        air: 0,
+        qty: 0
+      },
+      {
+        id: 3,
+        orderNo: "83135901",
+        cement: 0,
+        rock: 0,
+        sand: 0,
+        water: 0,
+        admix: 0,
+        admix2: 0,
+        flyash: 0,
+        air: 0,
+        qty: 0
+      }
     ];
-
-    const Icon = ({ name, size = 18, color, className = "", style = {} }) => {
+    /* =========================================================
+       HELPERS
+    ========================================================= */
+    function num(v) {
+      const n = parseFloat(v);
+      return Number.isFinite(n) ? n : 0;
+    }
+    /*
+      Password hash
+      ใช้ Web Crypto เมื่อ browser รองรับ
+      และมี fallback เพื่อให้ไฟล์ HTML ใช้งานได้กว้างขึ้น
+    */
+    async function sha256(message) {
+      const text = String(message ?? "");
+      try {
+        if (
+          window.crypto &&
+          window.crypto.subtle &&
+          window.TextEncoder
+        ) {
+          const buffer =
+            new TextEncoder().encode(text);
+          const hashBuffer =
+            await window.crypto.subtle.digest(
+              "SHA-256",
+              buffer
+            );
+          return Array
+            .from(new Uint8Array(hashBuffer))
+            .map(
+              b => b.toString(16).padStart(2, "0")
+            )
+            .join("");
+        }
+      } catch (error) {
+        console.warn(
+          "SHA-256 unavailable:",
+          error
+        );
+      }
+      /*
+        Fallback สำหรับ local/offline environment
+        ไม่ควรใช้แทน backend authentication
+      */
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash =
+          ((hash << 5) - hash) +
+          text.charCodeAt(i);
+        hash |= 0;
+      }
+      return "fallback_" +
+        Math.abs(hash).toString(16);
+    }
+    async function buildDefaultUsers() {
+      const result = [];
+      for (const account of DEFAULT_ACCOUNTS) {
+        result.push({
+          id: account.id,
+          username: account.username,
+          passwordHash: await sha256(
+            account.password
+          ),
+          role: account.role,
+          active: account.active
+        });
+      }
+      return result;
+    }
+    const Icon = ({
+      name,
+      size = 18,
+      color,
+      className = "",
+      style = {}
+    }) => {
       useEffect(() => {
-        if (window.lucide) window.lucide.createIcons();
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
       }, [name]);
-      return <i data-lucide={name} className={className} style={{ width: size, height: size, color, display: 'inline-block', ...style }}></i>;
+      return (
+        <i
+          data-lucide={name}
+          className={className}
+          style={{
+            width: size,
+            height: size,
+            color,
+            display: "inline-block",
+            ...style
+          }}
+        />
+      );
     };
-
+    /* =========================================================
+       ROOT APP
+    ========================================================= */
     function App() {
-      const [currentUser, setCurrentUser] = useState(null);
-      const [users, setUsers] = useState([]);
-      const [isInitialized, setIsInitialized] = useState(false);
-
+      const [currentUser, setCurrentUser] =
+        useState(null);
+      const [users, setUsers] =
+        useState([]);
+      const [isInitialized, setIsInitialized] =
+        useState(false);
       useEffect(() => {
-        async function initUsers() {
+        async function initializeUsers() {
           try {
-            const savedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-            if (savedUsers) {
-              setUsers(JSON.parse(savedUsers));
+            const saved =
+              localStorage.getItem(
+                USERS_STORAGE_KEY
+              );
+            if (saved) {
+              const parsed =
+                JSON.parse(saved);
+              if (
+                Array.isArray(parsed) &&
+                parsed.length
+              ) {
+                setUsers(parsed);
+              } else {
+                const defaults =
+                  await buildDefaultUsers();
+                setUsers(defaults);
+                localStorage.setItem(
+                  USERS_STORAGE_KEY,
+                  JSON.stringify(defaults)
+                );
+              }
             } else {
-              const adminHash = await sha256("Korat@2026#Secure");
-              const kenHash = await sha256("Ken");
-              const sikhioHash = await sha256("Sikhio2026");
-
-              const initial = [
-                { id: 1, username: "admin", passwordHash: adminHash, role: "ADMIN", active: true },
-                { id: 2, username: "Ken", passwordHash: kenHash, role: "USER", active: true },
-                { id: 3, username: "Sikhio", passwordHash: sikhioHash, role: "USER", active: true }
-              ];
-              setUsers(initial);
-              localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(initial));
+              const defaults =
+                await buildDefaultUsers();
+              setUsers(defaults);
+              localStorage.setItem(
+                USERS_STORAGE_KEY,
+                JSON.stringify(defaults)
+              );
             }
-          } catch (e) {
-            console.error("Init users error:", e);
+          } catch (error) {
+            console.error(
+              "User initialization error:",
+              error
+            );
+            const defaults =
+              await buildDefaultUsers();
+            setUsers(defaults);
+            try {
+              localStorage.setItem(
+                USERS_STORAGE_KEY,
+                JSON.stringify(defaults)
+              );
+            } catch (storageError) {
+              console.error(
+                storageError
+              );
+            }
           }
           setIsInitialized(true);
         }
-        initUsers();
+        initializeUsers();
       }, []);
-
-      const saveUsers = (newUsers) => {
+      function saveUsers(newUsers) {
         setUsers(newUsers);
         try {
-          localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(newUsers));
-        } catch (e) {
-          console.error("Save users error:", e);
+          localStorage.setItem(
+            USERS_STORAGE_KEY,
+            JSON.stringify(newUsers)
+          );
+        } catch (error) {
+          console.error(
+            "Save users error:",
+            error
+          );
         }
-      };
-
+      }
       if (!isInitialized) {
         return (
-          <div className="min-h-screen bg-[#121212] flex items-center justify-center text-white text-sm">
-            Loading System...
+          <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center text-white">
+            <Icon
+              name="layers"
+              size={34}
+              color="#c1502e"
+            />
+            <div className="mt-4 text-sm font-bold">
+              Loading System...
+            </div>
+            <div className="mt-2 text-[10px] text-gray-500 uppercase tracking-[0.25em]">
+              Mix Design V11
+            </div>
           </div>
         );
       }
-
       if (!currentUser) {
-        return <LoginPage users={users} onLogin={setCurrentUser} />;
+        return (
+          <LoginPage
+            users={users}
+            onLogin={setCurrentUser}
+          />
+        );
       }
-
-      return <MainDashboard currentUser={currentUser} users={users} onUpdateUsers={saveUsers} onLogout={() => setCurrentUser(null)} />;
+      return (
+        <MainDashboard
+          currentUser={currentUser}
+          users={users}
+          onUpdateUsers={saveUsers}
+          onLogout={() => setCurrentUser(null)}
+        />
+      );
     }
-
-    function LoginPage({ users, onLogin }) {
-      const [username, setUsername] = useState("");
-      const [password, setPassword] = useState("");
-      const [error, setError] = useState("");
-      const [loading, setLoading] = useState(false);
-
-      const handleSignIn = async (e) => {
+    /* =========================================================
+       LOGIN
+    ========================================================= */
+    function LoginPage({
+      users,
+      onLogin
+    }) {
+      const [username, setUsername] =
+        useState("");
+      const [password, setPassword] =
+        useState("");
+      const [error, setError] =
+        useState("");
+      const [loading, setLoading] =
+        useState(false);
+      const [showPassword, setShowPassword] =
+        useState(false);
+      async function handleSignIn(e) {
         e.preventDefault();
         setError("");
-
-        if (!username.trim() || !password) {
-          setError("⚠️ กรุณากรอก Username และ Password ให้ครบถ้วน");
+        const cleanUsername =
+          username.trim();
+        if (
+          !cleanUsername ||
+          !password
+        ) {
+          setError(
+            "⚠️ กรุณากรอก Username และ Password ให้ครบถ้วน"
+          );
           return;
         }
-
         setLoading(true);
-        const inputHash = await sha256(password);
-        
-        const found = users.find(u => 
-          u.username.toLowerCase() === username.trim().toLowerCase() && 
-          u.passwordHash === inputHash
-        );
-
+        const inputHash =
+          await sha256(password);
+        const found =
+          users.find(user =>
+            user.username.toLowerCase() ===
+              cleanUsername.toLowerCase() &&
+            user.passwordHash ===
+              inputHash
+          );
         setLoading(false);
-
         if (!found) {
-          setError("❌ ชื่อผู้ใช้งาน (Username) หรือ รหัสผ่าน (Password) ไม่ถูกต้อง");
+          setError(
+            "❌ Username หรือ Password ไม่ถูกต้อง"
+          );
           return;
         }
-
         if (!found.active) {
-          setError("🚫 บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ");
+          setError(
+            "🚫 บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อ Administrator"
+          );
           return;
         }
-
         onLogin(found);
-      };
-
+      }
       return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-[#121212] relative overflow-hidden w-full p-4">
-          <div className="relative z-10 w-full max-w-sm rounded-3xl bg-gradient-to-r from-[#ffffff10] to-[#121212] backdrop-blur-md shadow-2xl p-8 flex flex-col items-center border border-white/10">
-            <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white/20 mb-6 shadow-lg text-white">
-              <Icon name="layers" size={26} />
+        <div className="login-bg min-h-screen flex flex-col items-center justify-center w-full p-4 relative overflow-hidden">
+          <div className="absolute top-8 left-8 text-[10px] text-white/20 tracking-[0.3em]">
+            KORAT BATCHING PLANT
+          </div>
+          <div className="absolute bottom-8 right-8 text-[10px] text-white/20 tracking-[0.3em]">
+            MIX DESIGN SYSTEM V11
+          </div>
+          <div className="login-card relative z-10 w-full max-w-sm rounded-3xl bg-gradient-to-br from-[#ffffff12] to-[#ffffff03] backdrop-blur-xl p-8 flex flex-col items-center border border-white/10">
+            <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-[#c1502e] mb-6 shadow-lg shadow-black/30 text-white">
+              <Icon
+                name="layers"
+                size={30}
+              />
             </div>
-            <h2 className="text-2xl font-semibold text-white mb-1 text-center">คำนวณ Mix Design Belly</h2>
-            <p className="text-xs text-gray-400 mb-6 text-center">ระบบคำนวณสัดส่วนผสมคอนกรีต</p>
-            
-            <form onSubmit={handleSignIn} className="flex flex-col w-full gap-4">
-              <div className="w-full flex flex-col gap-3">
-                <input
-                  placeholder="Username"
-                  type="text"
-                  value={username}
-                  className="w-full px-5 py-3 rounded-xl bg-white/10 text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  onChange={(e) => { setUsername(e.target.value); setError(""); }}
-                />
-                <input
-                  placeholder="Password"
-                  type="password"
-                  value={password}
-                  className="w-full px-5 py-3 rounded-xl bg-white/10 text-white placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-                  onChange={(e) => { setPassword(e.target.value); setError(""); }}
-                />
-                
-                {error && (
-                  <div className="text-xs text-red-300 bg-red-950/80 border border-red-600/60 p-3 rounded-xl text-center leading-relaxed font-medium">
-                    {error}
-                  </div>
-                )}
-              </div>
-
-              <hr className="opacity-10 my-1" />
-              
+            <div className="text-[10px] font-bold tracking-[0.3em] text-[#c1502e] uppercase mb-2">
+              Korat Batching Plant
+            </div>
+            <h2 className="text-2xl font-black text-white text-center">
+              Mix Design Belly
+            </h2>
+            <p className="text-xs text-gray-400 mt-2 mb-7 text-center">
+              ระบบคำนวณสัดส่วนผสมคอนกรีต
+            </p>
+            <form
+              onSubmit={handleSignIn}
+              className="w-full flex flex-col gap-4"
+            >
               <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-white/15 text-white font-medium px-5 py-3 rounded-full shadow hover:bg-white/25 transition text-sm cursor-pointer"
-                >
-                  {loading ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ"}
-                </button>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Username
+                </label>
+                <input
+                  type="text"
+                  autoComplete="username"
+                  value={username}
+                  placeholder="Username"
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#c1502e]/70"
+                  onChange={e => {
+                    setUsername(
+                      e.target.value
+                    );
+                    setError("");
+                  }}
+                />
               </div>
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
+                    autoComplete="current-password"
+                    value={password}
+                    placeholder="Password"
+                    className="w-full px-4 py-3 pr-12 rounded-xl bg-white/10 border border-white/10 text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#c1502e]/70"
+                    onChange={e => {
+                      setPassword(
+                        e.target.value
+                      );
+                      setError("");
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowPassword(
+                        v => !v
+                      )
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white cursor-pointer"
+                  >
+                    <Icon
+                      name={
+                        showPassword
+                          ? "eye-off"
+                          : "eye"
+                      }
+                      size={17}
+                    />
+                  </button>
+                </div>
+              </div>
+              {error && (
+                <div className="text-xs text-red-300 bg-red-950/80 border border-red-600/50 p-3 rounded-xl text-center leading-relaxed font-medium">
+                  {error}
+                </div>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full mt-1 bg-[#c1502e] hover:bg-[#a94427] disabled:opacity-60 text-white font-bold px-5 py-3 rounded-xl shadow-lg transition text-sm cursor-pointer"
+              >
+                {loading
+                  ? "กำลังตรวจสอบ..."
+                  : "เข้าสู่ระบบ"}
+              </button>
             </form>
+            <div className="mt-6 pt-4 border-t border-white/10 w-full text-center">
+              <div className="text-[9px] text-gray-600 tracking-widest uppercase">
+                Authorized User Access
+              </div>
+              <div className="text-[9px] text-gray-700 mt-1">
+                Version {APP_VERSION}
+              </div>
+            </div>
           </div>
         </div>
       );
     }
-
-    function MainDashboard({ currentUser, users, onUpdateUsers, onLogout }) {
-      const [group, setGroup] = useState("A");
-      const [rows, setRows] = useState(seedRows);
-      const [showAdjust, setShowAdjust] = useState(false);
-      const [adjustments, setAdjustments] = useState([]);
-      const [saveState, setSaveState] = useState("idle");
-
-      const [draftOrderId, setDraftOrderId] = useState(null);
-      const [draftMaterial, setDraftMaterial] = useState(MATERIAL_COLS[0].key);
-      const [draftSign, setDraftSign] = useState("add");
-      const [draftValue, setDraftValue] = useState("");
-      const [draftQty, setDraftQty] = useState("");
-
-      const [showAdminModal, setShowAdminModal] = useState(false);
-      const [newUsername, setNewUsername] = useState("");
-      const [newPassword, setNewPassword] = useState("");
-      const [newRole, setNewRole] = useState("USER");
-
-      const isAdmin = currentUser.role.toUpperCase() === 'ADMIN';
-      const reduce = GROUPS[group].reduce;
-
+    /* =========================================================
+       MAIN DASHBOARD
+    ========================================================= */
+    function MainDashboard({
+      currentUser,
+      users,
+      onUpdateUsers,
+      onLogout
+    }) {
+      const [group, setGroup] =
+        useState("A");
+      const [rows, setRows] =
+        useState(seedRows);
+      const [showAdjust, setShowAdjust] =
+        useState(false);
+      const [adjustments, setAdjustments] =
+        useState([]);
+      const [saveState, setSaveState] =
+        useState("idle");
+      const [draftOrderId, setDraftOrderId] =
+        useState(null);
+      const [draftMaterial, setDraftMaterial] =
+        useState(
+          MATERIAL_COLS[0].key
+        );
+      const [draftSign, setDraftSign] =
+        useState("add");
+      const [draftValue, setDraftValue] =
+        useState("");
+      const [draftQty, setDraftQty] =
+        useState("");
+      const [showAdminModal, setShowAdminModal] =
+        useState(false);
+      const [newUsername, setNewUsername] =
+        useState("");
+      const [newPassword, setNewPassword] =
+        useState("");
+      const [newRole, setNewRole] =
+        useState("USER");
+      const [showResetConfirm, setShowResetConfirm] =
+        useState(false);
+      const isAdmin =
+        String(currentUser.role)
+          .toUpperCase() === "ADMIN";
+      const reduce =
+        GROUPS[group].reduce;
+      /* -------------------------------------------------------
+         Load Mix Design
+      ------------------------------------------------------- */
       useEffect(() => {
         try {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          if (saved) {
-            const data = JSON.parse(saved);
-            if (data.rows && data.rows.length) {
-              setRows(data.rows);
-              nextRowId = Math.max(...data.rows.map((r) => r.id)) + 1;
-            }
-            if (data.group) setGroup(data.group);
-            if (data.adjustments) {
-              setAdjustments(data.adjustments);
-              nextAdjId = data.adjustments.length ? Math.max(...data.adjustments.map((a) => a.id)) + 1 : 1;
-            }
+          const saved =
+            localStorage.getItem(
+              STORAGE_KEY
+            );
+          if (!saved) {
+            return;
           }
-        } catch (e) {
-          console.error("Load data error:", e);
+          const data =
+            JSON.parse(saved);
+          if (
+            Array.isArray(data.rows) &&
+            data.rows.length
+          ) {
+            setRows(data.rows);
+            nextRowId =
+              Math.max(
+                ...data.rows.map(
+                  r => num(r.id)
+                )
+              ) + 1;
+          }
+          if (
+            data.group &&
+            GROUPS[data.group]
+          ) {
+            setGroup(data.group);
+          }
+          if (
+            Array.isArray(
+              data.adjustments
+            )
+          ) {
+            setAdjustments(
+              data.adjustments
+            );
+            nextAdjId =
+              data.adjustments.length
+                ? Math.max(
+                    ...data.adjustments.map(
+                      a => num(a.id)
+                    )
+                  ) + 1
+                : 1;
+          }
+        } catch (error) {
+          console.error(
+            "Load data error:",
+            error
+          );
         }
       }, []);
-
+      /* -------------------------------------------------------
+         Draft Order
+      ------------------------------------------------------- */
       useEffect(() => {
-        if (rows.length && (draftOrderId === null || !rows.some(r => r.id === draftOrderId))) {
-          setDraftOrderId(rows[0].id);
+        if (
+          rows.length &&
+          (
+            draftOrderId === null ||
+            !rows.some(
+              r =>
+                r.id === draftOrderId
+            )
+          )
+        ) {
+          setDraftOrderId(
+            rows[0].id
+          );
         }
-      }, [rows, draftOrderId]);
-
+      }, [
+        rows,
+        draftOrderId
+      ]);
+      /* -------------------------------------------------------
+         Base Calculation
+      ------------------------------------------------------- */
       const baseResults = useMemo(() => {
-        return rows.map((r) => {
-          const qty = num(r.qty);
-          const out = {};
-          MATERIAL_COLS.forEach((c) => {
-            const val = num(r[c.key]);
-            out[c.key] = c.key === "water" ? val * qty : val * qty * (1 - reduce) * 0.001;
-          });
-          return out;
+        return rows.map(row => {
+          const qty =
+            num(row.qty);
+          const output = {};
+          MATERIAL_COLS.forEach(
+            col => {
+              const value =
+                num(row[col.key]);
+              /*
+                น้ำ:
+                kg/cubic meter × quantity
+                ไม่ลดตาม Group
+                วัตถุดิบอื่น:
+                kg/cubic meter × quantity
+                × Group factor
+                × 0.001 = ton
+              */
+              output[col.key] =
+                col.key === "water"
+                  ? value * qty
+                  : value *
+                    qty *
+                    (1 - reduce) *
+                    0.001;
+            }
+          );
+          return output;
         });
-      }, [rows, reduce]);
-
-      function adjustmentContribution(orderId, materialKey) {
+      }, [
+        rows,
+        reduce
+      ]);
+      /* -------------------------------------------------------
+         Adjustment
+      ------------------------------------------------------- */
+      function adjustmentContribution(
+        orderId,
+        materialKey
+      ) {
         return adjustments
-          .filter((a) => a.orderId === orderId && a.material === materialKey)
-          .reduce((sum, a) => {
-            const raw = materialKey === "water" ? a.value * a.qty : a.value * a.qty * (1 - reduce) * 0.001;
-            return sum + (a.sign === "reduce" ? -raw : raw);
-          }, 0);
+          .filter(
+            a =>
+              a.orderId === orderId &&
+              a.material === materialKey
+          )
+          .reduce(
+            (sum, a) => {
+              const raw =
+                materialKey === "water"
+                  ? num(a.value) *
+                    num(a.qty)
+                  : num(a.value) *
+                    num(a.qty) *
+                    (1 - reduce) *
+                    0.001;
+              return (
+                sum +
+                (
+                  a.sign === "reduce"
+                    ? -raw
+                    : raw
+                )
+              );
+            },
+            0
+          );
       }
-
-      const finalResults = useMemo(() => {
-        return rows.map((r, i) => {
-          const out = {};
-          MATERIAL_COLS.forEach((c) => {
-            out[c.key] = baseResults[i][c.key] + adjustmentContribution(r.id, c.key);
-          });
-          return out;
-        });
-      }, [baseResults, adjustments, reduce]);
-
+      const finalResults =
+        useMemo(() => {
+          return rows.map(
+            (row, index) => {
+              const output = {};
+              MATERIAL_COLS.forEach(
+                col => {
+                  output[col.key] =
+                    baseResults[index][
+                      col.key
+                    ] +
+                    adjustmentContribution(
+                      row.id,
+                      col.key
+                    );
+                }
+              );
+              return output;
+            }
+          );
+        }, [
+          rows,
+          baseResults,
+          adjustments,
+          reduce
+        ]);
+      /* -------------------------------------------------------
+         Totals
+      ------------------------------------------------------- */
       const totals = useMemo(() => {
-        const t = {};
-        MATERIAL_COLS.forEach((c) => (t[c.key] = 0));
-        finalResults.forEach((r) => MATERIAL_COLS.forEach((c) => (t[c.key] += r[c.key])));
-        return t;
-      }, [finalResults]);
-
-      function updateRow(id, key, value) {
-        setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [key]: value } : r)));
+        const total = {};
+        MATERIAL_COLS.forEach(
+          col => {
+            total[col.key] = 0;
+          }
+        );
+        finalResults.forEach(
+          result => {
+            MATERIAL_COLS.forEach(
+              col => {
+                total[col.key] +=
+                  result[col.key];
+              }
+            );
+          }
+        );
+        return total;
+      }, [
+        finalResults
+      ]);
+      /* -------------------------------------------------------
+         Row Actions
+      ------------------------------------------------------- */
+      function updateRow(
+        id,
+        key,
+        value
+      ) {
+        setRows(prev =>
+          prev.map(row =>
+            row.id === id
+              ? {
+                  ...row,
+                  [key]: value
+                }
+              : row
+          )
+        );
       }
-
       function addRow() {
-        const blank = { id: nextRowId++, orderNo: "", qty: 0 };
-        MATERIAL_COLS.forEach((c) => (blank[c.key] = 0));
-        setRows((prev) => [...prev, blank]);
-      }
-
-      function removeRow(id) {
-        setRows((prev) => prev.filter((r) => r.id !== id));
-        setAdjustments((prev) => prev.filter((a) => a.orderId !== id));
-      }
-
-      function addAdjustment() {
-        const v = num(draftValue);
-        const q = num(draftQty);
-        if (!draftOrderId || v === 0 || q === 0) return;
-        setAdjustments((prev) => [
+        const blank = {
+          id: nextRowId++,
+          orderNo: "",
+          qty: 0
+        };
+        MATERIAL_COLS.forEach(
+          col => {
+            blank[col.key] = 0;
+          }
+        );
+        setRows(prev => [
           ...prev,
-          { id: nextAdjId++, orderId: draftOrderId, material: draftMaterial, sign: draftSign, value: v, qty: q },
+          blank
+        ]);
+      }
+      function removeRow(id) {
+        if (
+          rows.length <= 1
+        ) {
+          alert(
+            "ต้องมีอย่างน้อย 1 แถว"
+          );
+          return;
+        }
+        setRows(prev =>
+          prev.filter(
+            row => row.id !== id
+          )
+        );
+        setAdjustments(prev =>
+          prev.filter(
+            a =>
+              a.orderId !== id
+          )
+        );
+      }
+      /* -------------------------------------------------------
+         Adjustment Actions
+      ------------------------------------------------------- */
+      function addAdjustment() {
+        const value =
+          num(draftValue);
+        const qty =
+          num(draftQty);
+        if (
+          !draftOrderId ||
+          value === 0 ||
+          qty === 0
+        ) {
+          alert(
+            "กรุณาระบุ Order, ค่า และจำนวนคิว"
+          );
+          return;
+        }
+        setAdjustments(prev => [
+          ...prev,
+          {
+            id: nextAdjId++,
+            orderId: draftOrderId,
+            material: draftMaterial,
+            sign: draftSign,
+            value,
+            qty
+          }
         ]);
         setDraftValue("");
         setDraftQty("");
       }
-
+      function removeAdjustment(id) {
+        setAdjustments(prev =>
+          prev.filter(
+            a => a.id !== id
+          )
+        );
+      }
+      /* -------------------------------------------------------
+         Save
+      ------------------------------------------------------- */
       function handleSave() {
         setSaveState("saving");
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ rows, group, adjustments }));
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+              rows,
+              group,
+              adjustments,
+              savedAt:
+                new Date().toISOString(),
+              version: APP_VERSION
+            })
+          );
           setSaveState("saved");
-          setTimeout(() => setSaveState("idle"), 1800);
-        } catch (e) {
+          setTimeout(() => {
+            setSaveState("idle");
+          }, 1800);
+        } catch (error) {
+          console.error(
+            error
+          );
           setSaveState("idle");
-          alert("บันทึกไม่สำเร็จ");
+          alert(
+            "บันทึกข้อมูลไม่สำเร็จ"
+          );
         }
       }
-
+      /* -------------------------------------------------------
+         Reset Mix Design
+      ------------------------------------------------------- */
+      function resetMixData() {
+        setRows(
+          JSON.parse(
+            JSON.stringify(
+              seedRows
+            )
+          )
+        );
+        setGroup("A");
+        setAdjustments([]);
+        nextRowId = 4;
+        nextAdjId = 1;
+        localStorage.removeItem(
+          STORAGE_KEY
+        );
+        setShowResetConfirm(false);
+        alert(
+          "รีเซ็ตข้อมูล Mix Design เรียบร้อยแล้ว"
+        );
+      }
+      /* -------------------------------------------------------
+         Report
+      ------------------------------------------------------- */
       function buildReportHTML() {
-        const groupInfo = GROUPS[group];
-        const rowsHtml = rows.map((r) => {
-          const cells = MATERIAL_COLS.map((c) => `<td>${num(r[c.key])}</td>`).join("");
-          return `<tr><td>${r.orderNo || "—"}</td>${cells}<td>${r.qty}</td></tr>`;
-        }).join("");
-        const resultRowsHtml = rows.map((r, i) => {
-          const cells = MATERIAL_COLS.map((c) => `<td>${finalResults[i][c.key].toFixed(3)}</td>`).join("");
-          return `<tr><td>${r.orderNo || "—"}</td>${cells}</tr>`;
-        }).join("");
-        const totalCells = MATERIAL_COLS.map((c) => `<td><b>${totals[c.key].toFixed(3)}</b></td>`).join("");
-        const adjRowsHtml = adjustments.map((a) => {
-          const rIdx = rows.findIndex((r) => r.id === a.orderId);
-          const orderLabel = rIdx >= 0 ? rows[rIdx].orderNo || "—" : "—";
-          const matLabel = MATERIAL_COLS.find((c) => c.key === a.material)?.label;
-          return `<tr><td>${orderLabel}</td><td>${matLabel}</td><td>${a.sign === "reduce" ? "-" : "+"}${a.value}</td><td>${a.qty}</td></tr>`;
-        }).join("");
-
-        return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>Mix Design Report</title>
-        <style>body{font-family:Arial,sans-serif;color:#23211d;padding:24px;}h1{margin-bottom:0;}.sub{color:#78766e;margin-top:4px;margin-bottom:20px;font-size:13px;}table{border-collapse:collapse;width:100%;margin-bottom:24px;font-size:12px;}th,td{border:1px solid #999;padding:5px 8px;text-align:right;}th:first-child,td:first-child{text-align:left;}th{background:#23211d;color:#fff;}h2{font-size:14px;text-transform:uppercase;color:#78766e;border-bottom:2px solid #23211d;padding-bottom:4px;}</style></head>
-        <body><h1>Mix Design — Korat Batching Plant</h1><div class="sub">คำนวณมิกซ์ By Pongston | Group ${groupInfo.label} | ผู้ใช้งาน: ${currentUser.username}</div>
-        <h2>วัตถุดิบต่อหน่วย (kg)</h2><table><tr><th>Order</th>${MATERIAL_COLS.map((c) => `<th>${c.label}</th>`).join("")}<th>จำนวน</th></tr>${rowsHtml}</table>
-        ${adjustments.length ? `<h2>รายการปรับวัตถุดิบ</h2><table><tr><th>Order</th><th>วัตถุดิบ</th><th>ค่า</th><th>คิว</th></tr>${adjRowsHtml}</table>` : ""}
-        <h2>ผลลัพธ์ (ตัน / kg)</h2><table><tr><th>Order</th>${MATERIAL_COLS.map((c) => `<th>${c.label}</th>`).join("")}</tr>${resultRowsHtml}<tr><td><b>รวม</b></td>${totalCells}</tr></table></body></html>`;
+        const groupInfo =
+          GROUPS[group];
+        const rowsHtml =
+          rows
+            .map(row => {
+              const cells =
+                MATERIAL_COLS
+                  .map(
+                    col =>
+                      `<td>${num(
+                        row[col.key]
+                      )}</td>`
+                  )
+                  .join("");
+              return `
+                <tr>
+                  <td>${row.orderNo || "—"}</td>
+                  ${cells}
+                  <td>${num(row.qty)}</td>
+                </tr>
+              `;
+            })
+            .join("");
+        const resultRowsHtml =
+          rows
+            .map((row, index) => {
+              const cells =
+                MATERIAL_COLS
+                  .map(
+                    col =>
+                      `<td>${finalResults[
+                        index
+                      ][
+                        col.key
+                      ].toFixed(3)}</td>`
+                  )
+                  .join("");
+              return `
+                <tr>
+                  <td>${row.orderNo || "—"}</td>
+                  ${cells}
+                </tr>
+              `;
+            })
+            .join("");
+        const totalCells =
+          MATERIAL_COLS
+            .map(
+              col =>
+                `<td><b>${totals[
+                  col.key
+                ].toFixed(3)}</b></td>`
+            )
+            .join("");
+        const adjustmentRows =
+          adjustments
+            .map(adjustment => {
+              const rowIndex =
+                rows.findIndex(
+                  row =>
+                    row.id ===
+                    adjustment.orderId
+                );
+              const orderLabel =
+                rowIndex >= 0
+                  ? rows[rowIndex]
+                      .orderNo ||
+                    "—"
+                  : "—";
+              const material =
+                MATERIAL_COLS.find(
+                  col =>
+                    col.key ===
+                    adjustment.material
+                );
+              return `
+                <tr>
+                  <td>${orderLabel}</td>
+                  <td>${material?.label || "—"}</td>
+                  <td>
+                    ${
+                      adjustment.sign ===
+                      "reduce"
+                        ? "-"
+                        : "+"
+                    }${adjustment.value}
+                  </td>
+                  <td>${adjustment.qty}</td>
+                </tr>
+              `;
+            })
+            .join("");
+        return `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>Mix Design Report</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  color: #23211d;
+  padding: 24px;
+}
+h1 {
+  margin-bottom: 0;
+}
+.sub {
+  color: #78766e;
+  margin-top: 4px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 24px;
+  font-size: 11px;
+}
+th,
+td {
+  border: 1px solid #999;
+  padding: 5px 7px;
+  text-align: right;
+}
+th:first-child,
+td:first-child {
+  text-align: left;
+}
+th {
+  background: #23211d;
+  color: white;
+}
+h2 {
+  font-size: 14px;
+  text-transform: uppercase;
+  color: #78766e;
+  border-bottom: 2px solid #23211d;
+  padding-bottom: 4px;
+}
+.footer {
+  margin-top: 30px;
+  font-size: 10px;
+  color: #888;
+}
+</style>
+</head>
+<body>
+<h1>
+Mix Design — Korat Batching Plant
+</h1>
+<div class="sub">
+คำนวณมิกซ์ By Pongston |
+Group ${groupInfo.label} |
+${groupInfo.desc} |
+ผู้ใช้งาน: ${currentUser.username} |
+Version ${APP_VERSION}
+</div>
+<h2>
+วัตถุดิบต่อหน่วย (kg)
+</h2>
+<table>
+<tr>
+<th>Order</th>
+${MATERIAL_COLS
+  .map(
+    col =>
+      `<th>${col.label}</th>`
+  )
+  .join("")}
+<th>จำนวน</th>
+</tr>
+${rowsHtml}
+</table>
+${
+  adjustments.length
+    ? `
+<h2>
+รายการปรับวัตถุดิบ
+</h2>
+<table>
+<tr>
+<th>Order</th>
+<th>วัตถุดิบ</th>
+<th>ค่า</th>
+<th>คิว</th>
+</tr>
+${adjustmentRows}
+</table>
+`
+    : ""
+}
+<h2>
+ผลลัพธ์ (ตัน / kg)
+</h2>
+<table>
+<tr>
+<th>Order</th>
+${MATERIAL_COLS
+  .map(
+    col =>
+      `<th>${col.label}</th>`
+  )
+  .join("")}
+</tr>
+${resultRowsHtml}
+<tr>
+<td>
+<b>รวม / Total</b>
+</td>
+${totalCells}
+</tr>
+</table>
+<div class="footer">
+Generated by Korat Batching Plant Mix Design V${APP_VERSION}
+</div>
+</body>
+</html>
+        `;
       }
-
       function handlePrint() {
-        const html = buildReportHTML();
-        const blob = new Blob([html], { type: "text/html" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `mix-design-${Date.now()}.html`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        const html =
+          buildReportHTML();
+        const blob =
+          new Blob(
+            [html],
+            {
+              type:
+                "text/html;charset=utf-8"
+            }
+          );
+        const url =
+          URL.createObjectURL(
+            blob
+          );
+        const link =
+          document.createElement(
+            "a"
+          );
+        link.href = url;
+        link.download =
+          `mix-design-${Date.now()}.html`;
+        document.body.appendChild(
+          link
+        );
+        link.click();
+        document.body.removeChild(
+          link
+        );
+        setTimeout(() => {
+          URL.revokeObjectURL(
+            url
+          );
+        }, 1000);
       }
-
-      const handleCreateUser = async (e) => {
+      /* =======================================================
+         ADMIN USER MANAGEMENT
+      ======================================================= */
+      async function handleCreateUser(e) {
         e.preventDefault();
-        if (!newUsername || !newPassword) return;
-        if (users.some(u => u.username.toLowerCase() === newUsername.trim().toLowerCase())) {
-          alert("Username นี้มีผู้ใช้งานแล้วในระบบ");
+        const username =
+          newUsername.trim();
+        const password =
+          newPassword;
+        if (!username || !password) {
+          alert(
+            "กรุณากรอก Username และ Password"
+          );
           return;
         }
-        const passwordHash = await sha256(newPassword);
-        const updated = [...users, { id: Date.now(), username: newUsername.trim(), passwordHash, role: newRole, active: true }];
-        onUpdateUsers(updated);
+        if (
+          username.length < 2
+        ) {
+          alert(
+            "Username ต้องมีอย่างน้อย 2 ตัวอักษร"
+          );
+          return;
+        }
+        if (
+          password.length < 1
+        ) {
+          alert(
+            "Password ไม่สามารถเป็นค่าว่างได้"
+          );
+          return;
+        }
+        const exists =
+          users.some(
+            user =>
+              user.username
+                .toLowerCase() ===
+              username.toLowerCase()
+          );
+        if (exists) {
+          alert(
+            "Username นี้มีผู้ใช้งานแล้วในระบบ"
+          );
+          return;
+        }
+        const passwordHash =
+          await sha256(password);
+        const updated = [
+          ...users,
+          {
+            id:
+              Date.now(),
+            username,
+            passwordHash,
+            role: newRole,
+            active: true
+          }
+        ];
+        onUpdateUsers(
+          updated
+        );
         setNewUsername("");
         setNewPassword("");
-        alert("สร้าง User สำเร็จแล้ว");
-      };
-
-      const handleToggleActive = (id) => {
-        const updated = users.map(u => u.id === id ? { ...u, active: !u.active } : u);
-        onUpdateUsers(updated);
-      };
-
-      const handleDeleteUser = (id) => {
-        const target = users.find(u => u.id === id);
-        if (target && target.username.toLowerCase() === 'admin' && users.filter(u => u.role.toUpperCase() === 'ADMIN').length <= 1) {
-          alert("ไม่สามารถลบบัญชี Administrator หลักตัวสุดท้ายของระบบได้");
+        setNewRole("USER");
+        alert(
+          `สร้าง User "${username}" สำเร็จแล้ว`
+        );
+      }
+      function handleToggleActive(id) {
+        const target =
+          users.find(
+            user =>
+              user.id === id
+          );
+        if (!target) {
           return;
         }
-        if (confirm(`คุณต้องการลบผู้ใช้งาน "${target?.username}" ใช่หรือไม่?`)) {
-          const updated = users.filter(u => u.id !== id);
-          onUpdateUsers(updated);
+        /*
+          ป้องกันการปิด ADMIN คนสุดท้าย
+        */
+        if (
+          target.role.toUpperCase() ===
+            "ADMIN" &&
+          target.active &&
+          users.filter(
+            user =>
+              user.role.toUpperCase() ===
+                "ADMIN" &&
+              user.active
+          ).length <= 1
+        ) {
+          alert(
+            "ไม่สามารถปิดใช้งาน Administrator คนสุดท้ายของระบบได้"
+          );
+          return;
         }
-      };
-
-      const handleChangePassword = async (id, username) => {
-        const p = prompt(`กำหนดรหัสผ่านใหม่สำหรับผู้ใช้งาน: ${username}`, "");
-        if (p !== null) {
-          if (!p.trim()) {
-            alert("รหัสผ่านไม่สามารถเป็นค่าว่างได้");
-            return;
-          }
-          const passwordHash = await sha256(p);
-          const updated = users.map(u => u.id === id ? { ...u, passwordHash } : u);
-          onUpdateUsers(updated);
-          alert("เปลี่ยนรหัสผ่านสำเร็จ");
+        const updated =
+          users.map(
+            user =>
+              user.id === id
+                ? {
+                    ...user,
+                    active:
+                      !user.active
+                  }
+                : user
+          );
+        onUpdateUsers(
+          updated
+        );
+      }
+      function handleDeleteUser(id) {
+        const target =
+          users.find(
+            user =>
+              user.id === id
+          );
+        if (!target) {
+          return;
         }
-      };
-
-      const orderOptions = rows.map((r, i) => ({ id: r.id, label: `${i + 1}. ${r.orderNo || "(ไม่ระบุเลขที่)"}` }));
-
+        if (
+          target.id ===
+          currentUser.id
+        ) {
+          alert(
+            "ไม่สามารถลบบัญชีที่กำลังเข้าสู่ระบบอยู่ได้"
+          );
+          return;
+        }
+        if (
+          target.role.toUpperCase() ===
+            "ADMIN" &&
+          users.filter(
+            user =>
+              user.role.toUpperCase() ===
+              "ADMIN"
+          ).length <= 1
+        ) {
+          alert(
+            "ไม่สามารถลบ Administrator หลักตัวสุดท้ายของระบบได้"
+          );
+          return;
+        }
+        const confirmed =
+          window.confirm(
+            `คุณต้องการลบผู้ใช้งาน "${target.username}" ใช่หรือไม่?`
+          );
+        if (!confirmed) {
+          return;
+        }
+        const updated =
+          users.filter(
+            user =>
+              user.id !== id
+          );
+        onUpdateUsers(
+          updated
+        );
+      }
+      async function handleChangePassword(
+        id,
+        username
+      ) {
+        const password =
+          window.prompt(
+            `กำหนดรหัสผ่านใหม่สำหรับ "${username}"`,
+            ""
+          );
+        if (password === null) {
+          return;
+        }
+        if (!password.trim()) {
+          alert(
+            "Password ไม่สามารถเป็นค่าว่างได้"
+          );
+          return;
+        }
+        const passwordHash =
+          await sha256(
+            password
+          );
+        const updated =
+          users.map(
+            user =>
+              user.id === id
+                ? {
+                    ...user,
+                    passwordHash
+                  }
+                : user
+          );
+        onUpdateUsers(
+          updated
+        );
+        alert(
+          `เปลี่ยนรหัสผ่านของ "${username}" สำเร็จแล้ว`
+        );
+      }
+      /* -------------------------------------------------------
+         Options
+      ------------------------------------------------------- */
+      const orderOptions =
+        rows.map(
+          (row, index) => ({
+            id: row.id,
+            label:
+              `${index + 1}. ${
+                row.orderNo ||
+                "(ไม่ระบุเลขที่)"
+              }`
+          })
+        );
       return (
-        <div className="min-h-screen w-full" style={{ background: "#efece2" }}>
+        <div
+          className="min-h-screen w-full"
+          style={{
+            background:
+              "#efece2"
+          }}
+        >
           <div className="max-w-6xl mx-auto px-4 py-6 sm:px-6 sm:py-10">
-            
-            <div className="flex items-start justify-between gap-4 mb-5 border-b-2 pb-4" style={{ borderColor: "#23211d" }}>
+            {/* =================================================
+                HEADER
+            ================================================= */}
+            <div
+              className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-5 border-b-2 pb-4"
+              style={{
+                borderColor:
+                  "#23211d"
+              }}
+            >
               <div>
-                <div className="flex items-center gap-2" style={{ color: "#c1502e" }}>
-                  <Icon name="layers" size={18} />
-                  <span className="text-xs font-bold tracking-[0.2em] uppercase">Korat Batching Plant</span>
+                <div
+                  className="flex items-center gap-2"
+                  style={{
+                    color:
+                      "#c1502e"
+                  }}
+                >
+                  <Icon
+                    name="layers"
+                    size={18}
+                  />
+                  <span className="text-xs font-bold tracking-[0.2em] uppercase">
+                    Korat Batching Plant
+                  </span>
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight mt-1" style={{ color: "#23211d", fontFamily: "Georgia, serif" }}>
+                <h1
+                  className="text-3xl sm:text-4xl font-black tracking-tight mt-1"
+                  style={{
+                    color:
+                      "#23211d",
+                    fontFamily:
+                      "Georgia, serif"
+                  }}
+                >
                   Mix Design
                 </h1>
-                <p className="text-xs mt-1" style={{ color: "#78766e" }}>คำนวณมิกซ์ By Pongston</p>
+                <p
+                  className="text-xs mt-1"
+                  style={{
+                    color:
+                      "#78766e"
+                  }}
+                >
+                  คำนวณมิกซ์ By Pongston
+                  {" · "}
+                  V{APP_VERSION}
+                </p>
               </div>
-
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-xs font-bold" style={{ color: "#23211d" }}>👤 {currentUser.username}</div>
-                  <div className="text-[10px] px-1.5 py-0.5 rounded inline-block font-bold mt-0.5" style={{ background: isAdmin ? '#c1502e' : '#2e7d46', color: '#fff' }}>
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <div className="text-right mr-1">
+                  <div
+                    className="text-xs font-bold"
+                    style={{
+                      color:
+                        "#23211d"
+                    }}
+                  >
+                    👤 {currentUser.username}
+                  </div>
+                  <div
+                    className="text-[10px] px-1.5 py-0.5 rounded inline-block font-bold mt-0.5"
+                    style={{
+                      background:
+                        isAdmin
+                          ? "#c1502e"
+                          : "#2e7d46",
+                      color:
+                        "#fff"
+                    }}
+                  >
                     {currentUser.role.toUpperCase()}
                   </div>
                 </div>
-                
                 {isAdmin && (
                   <button
-                    onClick={() => setShowAdminModal(true)}
+                    onClick={() =>
+                      setShowAdminModal(
+                        true
+                      )
+                    }
                     className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase border-2 bg-white cursor-pointer hover:bg-gray-50 shadow-xs"
-                    style={{ borderColor: "#23211d", color: "#23211d" }}
+                    style={{
+                      borderColor:
+                        "#23211d",
+                      color:
+                        "#23211d"
+                    }}
                   >
-                    <Icon name="shield" size={14} color="#c1502e" /> จัดการ User
+                    <Icon
+                      name="shield"
+                      size={14}
+                      color="#c1502e"
+                    />
+                    จัดการ User
                   </button>
                 )}
-
                 <button
                   onClick={onLogout}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase border-2 bg-[#23211d] text-white cursor-pointer hover:bg-black shadow-xs"
-                  style={{ borderColor: "#23211d" }}
+                  style={{
+                    borderColor:
+                      "#23211d"
+                  }}
                 >
-                  <Icon name="log-out" size={14} /> ออก
+                  <Icon
+                    name="log-out"
+                    size={14}
+                  />
+                  ออก
                 </button>
               </div>
             </div>
-
+            {/* =================================================
+                GROUP
+            ================================================= */}
             <div className="flex items-center gap-3 mb-6 flex-wrap">
-              <span className="text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>Group</span>
-              <div className="inline-flex border-2" style={{ borderColor: "#23211d" }}>
-                {Object.entries(GROUPS).map(([key, g], idx) => {
-                  const active = group === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => setGroup(key)}
-                      className="px-3 py-1.5 text-sm font-bold transition-colors cursor-pointer"
-                      style={{
-                        background: active ? "#23211d" : "#ffffff",
-                        color: active ? "#f5f3ee" : "#23211d",
-                        borderLeft: idx === 0 ? "none" : "1px solid #23211d",
-                      }}
-                      title={g.desc}
-                    >
-                      {g.label}. <span style={{ color: active ? "#e8916b" : "#c1502e" }}>{g.short}</span>
-                    </button>
-                  );
-                })}
+              <span
+                className="text-xs font-bold uppercase tracking-widest"
+                style={{
+                  color:
+                    "#78766e"
+                }}
+              >
+                Group
+              </span>
+              <div
+                className="inline-flex border-2"
+                style={{
+                  borderColor:
+                    "#23211d"
+                }}
+              >
+                {Object.entries(
+                  GROUPS
+                ).map(
+                  (
+                    [key, groupInfo],
+                    index
+                  ) => {
+                    const active =
+                      group ===
+                      key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() =>
+                          setGroup(
+                            key
+                          )
+                        }
+                        className="px-3 py-1.5 text-sm font-bold transition-colors cursor-pointer"
+                        style={{
+                          background:
+                            active
+                              ? "#23211d"
+                              : "#ffffff",
+                          color:
+                            active
+                              ? "#f5f3ee"
+                              : "#23211d",
+                          borderLeft:
+                            index ===
+                            0
+                              ? "none"
+                              : "1px solid #23211d"
+                        }}
+                        title={
+                          groupInfo.desc
+                        }
+                      >
+                        {groupInfo.label}.
+                        {" "}
+                        <span
+                          style={{
+                            color:
+                              active
+                                ? "#e8916b"
+                                : "#c1502e"
+                          }}
+                        >
+                          {
+                            groupInfo.short
+                          }
+                        </span>
+                      </button>
+                    );
+                  }
+                )}
               </div>
-              <span className="text-xs" style={{ color: "#a09d92" }}>{GROUPS[group].desc}</span>
+              <span
+                className="text-xs"
+                style={{
+                  color:
+                    "#a09d92"
+                }}
+              >
+                {
+                  GROUPS[group]
+                    .desc
+                }
+              </span>
             </div>
-
-            <div className="mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>
-              วัตถุดิบต่อหน่วย (kg) — แก้ไขได้
+            {/* =================================================
+                INPUT TABLE
+            ================================================= */}
+            <div
+              className="mb-2 text-xs font-bold uppercase tracking-widest"
+              style={{
+                color:
+                  "#78766e"
+              }}
+            >
+              วัตถุดิบต่อหน่วย (kg)
+              — แก้ไขได้
             </div>
-            <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
-              <table className="w-full text-sm" style={{ minWidth: 920 }}>
+            <div
+              className="overflow-x-auto border-2 mb-4"
+              style={{
+                borderColor:
+                  "#23211d",
+                background:
+                  "#ffffff"
+              }}
+            >
+              <table
+                className="w-full text-sm"
+                style={{
+                  minWidth: 920
+                }}
+              >
                 <thead>
-                  <tr style={{ background: "#23211d", color: "#f5f3ee" }}>
-                    <th className="text-left px-3 py-2 font-semibold sticky left-0" style={{ background: "#23211d", minWidth: 120 }}>เลขที่ Order</th>
-                    {MATERIAL_COLS.map((c) => (
-                      <th key={c.key} className="text-right px-3 py-2 font-semibold" style={{ minWidth: 90 }}>{c.label}</th>
-                    ))}
-                    <th className="text-right px-3 py-2 font-semibold" style={{ minWidth: 80 }}>จำนวน</th>
-                    <th className="px-2 py-2" style={{ minWidth: 44 }}></th>
+                  <tr
+                    style={{
+                      background:
+                        "#23211d",
+                      color:
+                        "#f5f3ee"
+                    }}
+                  >
+                    <th
+                      className="text-left px-3 py-2 font-semibold sticky left-0"
+                      style={{
+                        background:
+                          "#23211d",
+                        minWidth:
+                          120
+                      }}
+                    >
+                      เลขที่ Order
+                    </th>
+                    {MATERIAL_COLS.map(
+                      col => (
+                        <th
+                          key={
+                            col.key
+                          }
+                          className="text-right px-3 py-2 font-semibold"
+                          style={{
+                            minWidth:
+                              90
+                          }}
+                        >
+                          {
+                            col.label
+                          }
+                        </th>
+                      )
+                    )}
+                    <th
+                      className="text-right px-3 py-2 font-semibold"
+                      style={{
+                        minWidth:
+                          80
+                      }}
+                    >
+                      จำนวน
+                    </th>
+                    <th
+                      className="px-2 py-2"
+                      style={{
+                        minWidth:
+                          44
+                      }}
+                    >
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
-                      <td className="px-3 py-1.5 sticky left-0" style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0" }}>
-                        <input
-                          value={r.orderNo}
-                          onChange={(e) => updateRow(r.id, "orderNo", e.target.value)}
-                          className="w-full bg-transparent outline-none font-mono text-xs"
-                          style={{ color: "#23211d" }}
-                          placeholder="—"
-                        />
-                      </td>
-                      {MATERIAL_COLS.map((c) => (
-                        <td key={c.key} className="px-2 py-1.5">
+                  {rows.map(
+                    (
+                      row,
+                      index
+                    ) => (
+                      <tr
+                        key={
+                          row.id
+                        }
+                        style={{
+                          background:
+                            index %
+                              2 ===
+                            0
+                              ? "#ffffff"
+                              : "#f7f5f0",
+                          borderTop:
+                            "1px solid #e3e0d5"
+                        }}
+                      >
+                        <td
+                          className="px-3 py-1.5 sticky left-0"
+                          style={{
+                            background:
+                              index %
+                                2 ===
+                              0
+                                ? "#ffffff"
+                                : "#f7f5f0"
+                          }}
+                        >
                           <input
-                            type="number"
-                            value={r[c.key]}
-                            onChange={(e) => updateRow(r.id, c.key, e.target.value)}
-                            className="w-full bg-transparent outline-none text-right font-mono"
-                            style={{ color: c.key === "air" ? "#c1502e" : "#23211d" }}
+                            value={
+                              row.orderNo
+                            }
+                            onChange={e =>
+                              updateRow(
+                                row.id,
+                                "orderNo",
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="table-input w-full bg-transparent outline-none font-mono text-xs"
+                            style={{
+                              color:
+                                "#23211d"
+                            }}
+                            placeholder="—"
                           />
                         </td>
-                      ))}
-                      <td className="px-2 py-1.5">
-                        <input
-                          type="number"
-                          value={r.qty}
-                          onChange={(e) => updateRow(r.id, "qty", e.target.value)}
-                          className="w-full bg-transparent outline-none text-right font-mono font-semibold"
-                          style={{ color: "#23211d" }}
-                        />
-                      </td>
-                      <td className="px-2 py-1.5 text-center">
-                        <button onClick={() => removeRow(r.id)} title="ลบแถว" style={{ color: "#78766e" }} className="cursor-pointer">
-                          <Icon name="trash-2" size={15} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        {MATERIAL_COLS.map(
+                          col => (
+                            <td
+                              key={
+                                col.key
+                              }
+                              className="px-2 py-1.5"
+                            >
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                value={
+                                  row[
+                                    col.key
+                                  ]
+                                }
+                                onChange={e =>
+                                  updateRow(
+                                    row.id,
+                                    col.key,
+                                    e.target
+                                      .value
+                                  )
+                                }
+                                className="table-input w-full bg-transparent outline-none text-right font-mono"
+                                style={{
+                                  color:
+                                    col.key ===
+                                    "air"
+                                      ? "#c1502e"
+                                      : "#23211d"
+                                }}
+                              />
+                            </td>
+                          )
+                        )}
+                        <td className="px-2 py-1.5">
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            value={
+                              row.qty
+                            }
+                            onChange={e =>
+                              updateRow(
+                                row.id,
+                                "qty",
+                                e.target
+                                  .value
+                              )
+                            }
+                            className="table-input w-full bg-transparent outline-none text-right font-mono font-semibold"
+                            style={{
+                              color:
+                                "#23211d"
+                            }}
+                          />
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          <button
+                            onClick={() =>
+                              removeRow(
+                                row.id
+                              )
+                            }
+                            title="ลบแถว"
+                            style={{
+                              color:
+                                "#78766e"
+                            }}
+                            className="cursor-pointer hover:text-red-600"
+                          >
+                            <Icon
+                              name="trash-2"
+                              size={15}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  )}
                 </tbody>
               </table>
             </div>
-
-            <button
-              onClick={addRow}
-              className="mb-6 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white"
-              style={{ borderColor: "#23211d", color: "#23211d" }}
+            <div className="flex flex-wrap gap-2 mb-6">
+              <button
+                onClick={addRow}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white hover:bg-gray-50"
+                style={{
+                  borderColor:
+                    "#23211d",
+                  color:
+                    "#23211d"
+                }}
+              >
+                <Icon
+                  name="plus"
+                  size={14}
+                />
+                เพิ่มแถว
+              </button>
+              <button
+                onClick={() =>
+                  setShowResetConfirm(
+                    true
+                  )
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white hover:bg-red-50"
+                style={{
+                  borderColor:
+                    "#8b3a28",
+                  color:
+                    "#8b3a28"
+                }}
+              >
+                <Icon
+                  name="rotate-ccw"
+                  size={14}
+                />
+                รีเซ็ต
+              </button>
+            </div>
+            {/* =================================================
+                ADJUSTMENT
+            ================================================= */}
+            <div
+              className="mb-6 border-2"
+              style={{
+                borderColor:
+                  "#23211d",
+                background:
+                  "#ffffff"
+              }}
             >
-              <Icon name="plus" size={14} /> เพิ่มแถว
-            </button>
-
-            <div className="mb-6 border-2" style={{ borderColor: "#23211d", background: "#ffffff" }}>
-              <div className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none" onClick={() => setShowAdjust((s) => !s)}>
-                <span className="w-5 h-5 flex items-center justify-center border-2 shrink-0" style={{ borderColor: "#23211d", background: showAdjust ? "#c1502e" : "#ffffff" }}>
-                  {showAdjust && <Icon name="check" size={13} color="#fff" />}
+              <div
+                className="flex items-center gap-2 px-4 py-3 cursor-pointer select-none"
+                onClick={() =>
+                  setShowAdjust(
+                    value =>
+                      !value
+                  )
+                }
+              >
+                <span
+                  className="w-5 h-5 flex items-center justify-center border-2 shrink-0"
+                  style={{
+                    borderColor:
+                      "#23211d",
+                    background:
+                      showAdjust
+                        ? "#c1502e"
+                        : "#ffffff"
+                  }}
+                >
+                  {showAdjust && (
+                    <Icon
+                      name="check"
+                      size={13}
+                      color="#fff"
+                    />
+                  )}
                 </span>
-                <span className="text-sm font-bold" style={{ color: "#23211d" }}>ปรับวัตถุดิบเพิ่มเติมรายออเดอร์</span>
-                <Icon name="chevron-down" size={16} className="ml-auto transition-transform" style={{ color: "#78766e", transform: showAdjust ? "rotate(180deg)" : "none" }} />
+                <span
+                  className="text-sm font-bold"
+                  style={{
+                    color:
+                      "#23211d"
+                  }}
+                >
+                  ปรับวัตถุดิบเพิ่มเติมรายออเดอร์
+                </span>
+                <Icon
+                  name="chevron-down"
+                  size={16}
+                  className="ml-auto transition-transform"
+                  style={{
+                    color:
+                      "#78766e",
+                    transform:
+                      showAdjust
+                        ? "rotate(180deg)"
+                        : "none"
+                  }}
+                />
               </div>
-
               {showAdjust && (
-                <div className="px-4 pb-4 pt-1 border-t-2" style={{ borderColor: "#e3e0d5" }}>
+                <div
+                  className="px-4 pb-4 pt-1 border-t-2"
+                  style={{
+                    borderColor:
+                      "#e3e0d5"
+                  }}
+                >
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mt-3">
                     <div>
-                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>1. ออเดอร์</div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1">
+                        1. ออเดอร์
+                      </div>
                       <select
-                        value={draftOrderId ?? ""}
-                        onChange={(e) => setDraftOrderId(Number(e.target.value))}
+                        value={
+                          draftOrderId ??
+                          ""
+                        }
+                        onChange={e =>
+                          setDraftOrderId(
+                            Number(
+                              e.target
+                                .value
+                            )
+                          )
+                        }
                         className="w-full border-2 px-2 py-1.5 text-sm bg-white"
-                        style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                        style={{
+                          borderColor:
+                            "#d8d5cb",
+                          color:
+                            "#23211d"
+                        }}
                       >
-                        {orderOptions.map((o) => (<option key={o.id} value={o.id}>{o.label}</option>))}
+                        {orderOptions.map(
+                          option => (
+                            <option
+                              key={
+                                option.id
+                              }
+                              value={
+                                option.id
+                              }
+                            >
+                              {
+                                option.label
+                              }
+                            </option>
+                          )
+                        )}
                       </select>
                     </div>
                     <div>
-                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>2. ชนิดวัตถุดิบ</div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1">
+                        2. ชนิดวัตถุดิบ
+                      </div>
                       <select
-                        value={draftMaterial}
-                        onChange={(e) => setDraftMaterial(e.target.value)}
+                        value={
+                          draftMaterial
+                        }
+                        onChange={e =>
+                          setDraftMaterial(
+                            e.target
+                              .value
+                          )
+                        }
                         className="w-full border-2 px-2 py-1.5 text-sm bg-white"
-                        style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                        style={{
+                          borderColor:
+                            "#d8d5cb",
+                          color:
+                            "#23211d"
+                        }}
                       >
-                        {MATERIAL_COLS.map((c) => (<option key={c.key} value={c.key}>{c.label}</option>))}
+                        {MATERIAL_COLS.map(
+                          col => (
+                            <option
+                              key={
+                                col.key
+                              }
+                              value={
+                                col.key
+                              }
+                            >
+                              {
+                                col.label
+                              }
+                            </option>
+                          )
+                        )}
                       </select>
                     </div>
                     <div>
-                      <div className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: "#78766e" }}>3. ค่า (กก.) / คิว</div>
+                      <div className="text-xs font-bold uppercase tracking-wider mb-1">
+                        3. ค่า / คิว
+                      </div>
                       <div className="flex gap-1">
                         <select
-                          value={draftSign}
-                          onChange={(e) => setDraftSign(e.target.value)}
+                          value={
+                            draftSign
+                          }
+                          onChange={e =>
+                            setDraftSign(
+                              e.target
+                                .value
+                            )
+                          }
                           className="border-2 px-1 py-1.5 text-sm bg-white shrink-0"
-                          style={{ borderColor: "#d8d5cb", color: draftSign === "reduce" ? "#c1502e" : "#2e7d46" }}
+                          style={{
+                            borderColor:
+                              "#d8d5cb",
+                            color:
+                              draftSign ===
+                              "reduce"
+                                ? "#c1502e"
+                                : "#2e7d46"
+                          }}
                         >
-                          <option value="add">เพิ่ม +</option>
-                          <option value="reduce">ลด −</option>
+                          <option value="add">
+                            เพิ่ม +
+                          </option>
+                          <option value="reduce">
+                            ลด −
+                          </option>
                         </select>
                         <input
                           type="number"
-                          value={draftValue}
-                          onChange={(e) => setDraftValue(e.target.value)}
-                          placeholder="ค่า"
+                          inputMode="decimal"
+                          value={
+                            draftValue
+                          }
+                          onChange={e =>
+                            setDraftValue(
+                              e.target
+                                .value
+                            )
+                          }
+                          placeholder="kg"
                           className="w-full border-2 px-2 py-1.5 text-sm font-mono"
-                          style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                          style={{
+                            borderColor:
+                              "#d8d5cb"
+                          }}
                         />
                         <input
                           type="number"
-                          value={draftQty}
-                          onChange={(e) => setDraftQty(e.target.value)}
+                          inputMode="decimal"
+                          value={
+                            draftQty
+                          }
+                          onChange={e =>
+                            setDraftQty(
+                              e.target
+                                .value
+                            )
+                          }
                           placeholder="คิว"
                           className="w-full border-2 px-2 py-1.5 text-sm font-mono"
-                          style={{ borderColor: "#d8d5cb", color: "#23211d" }}
+                          style={{
+                            borderColor:
+                              "#d8d5cb"
+                          }}
                         />
                       </div>
                     </div>
                     <div className="flex items-end">
-                      <button onClick={addAdjustment} className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider cursor-pointer" style={{ background: "#23211d", color: "#f5f3ee" }}>
+                      <button
+                        onClick={
+                          addAdjustment
+                        }
+                        className="w-full px-3 py-2 text-xs font-bold uppercase tracking-wider cursor-pointer"
+                        style={{
+                          background:
+                            "#23211d",
+                          color:
+                            "#f5f3ee"
+                        }}
+                      >
                         เพิ่มรายการปรับ
                       </button>
                     </div>
                   </div>
+                  {adjustments.length > 0 && (
+                    <div className="mt-5 overflow-x-auto border-2 border-[#e3e0d5]">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-[#f7f5f0]">
+                            <th className="text-left p-2">
+                              Order
+                            </th>
+                            <th className="text-left p-2">
+                              วัตถุดิบ
+                            </th>
+                            <th className="text-right p-2">
+                              ค่า
+                            </th>
+                            <th className="text-right p-2">
+                              คิว
+                            </th>
+                            <th className="text-center p-2">
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {adjustments.map(
+                            adjustment => {
+                              const row =
+                                rows.find(
+                                  r =>
+                                    r.id ===
+                                    adjustment.orderId
+                                );
+                              const material =
+                                MATERIAL_COLS.find(
+                                  col =>
+                                    col.key ===
+                                    adjustment.material
+                                );
+                              return (
+                                <tr
+                                  key={
+                                    adjustment.id
+                                  }
+                                  className="border-t border-[#e3e0d5]"
+                                >
+                                  <td className="p-2 font-mono">
+                                    {
+                                      row?.orderNo ||
+                                      "—"
+                                    }
+                                  </td>
+                                  <td className="p-2">
+                                    {
+                                      material?.label
+                                    }
+                                  </td>
+                                  <td
+                                    className="p-2 text-right font-mono font-bold"
+                                    style={{
+                                      color:
+                                        adjustment.sign ===
+                                        "reduce"
+                                          ? "#c1502e"
+                                          : "#2e7d46"
+                                    }}
+                                  >
+                                    {adjustment.sign ===
+                                    "reduce"
+                                      ? "-"
+                                      : "+"}
+                                    {
+                                      adjustment.value
+                                    }
+                                  </td>
+                                  <td className="p-2 text-right font-mono">
+                                    {
+                                      adjustment.qty
+                                    }
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <button
+                                      onClick={() =>
+                                        removeAdjustment(
+                                          adjustment.id
+                                        )
+                                      }
+                                      className="text-red-500 hover:text-red-700 cursor-pointer"
+                                    >
+                                      <Icon
+                                        name="trash-2"
+                                        size={14}
+                                      />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
-
-            <div className="mb-2 text-xs font-bold uppercase tracking-widest" style={{ color: "#78766e" }}>
-              ผลลัพธ์ (Group {group} · {GROUPS[group].short}) — ตัน / kg
+            {/* =================================================
+                RESULTS
+            ================================================= */}
+            <div
+              className="mb-2 text-xs font-bold uppercase tracking-widest"
+              style={{
+                color:
+                  "#78766e"
+              }}
+            >
+              ผลลัพธ์
+              {" "}
+              (Group {group}
+              {" · "}
+              {
+                GROUPS[group]
+                  .short
+              })
+              — ตัน / kg
             </div>
-            <div className="overflow-x-auto border-2 mb-4" style={{ borderColor: "#23211d", background: "#ffffff" }}>
-              <table className="w-full text-sm" style={{ minWidth: 820 }}>
+            <div
+              className="overflow-x-auto border-2 mb-4"
+              style={{
+                borderColor:
+                  "#23211d",
+                background:
+                  "#ffffff"
+              }}
+            >
+              <table
+                className="w-full text-sm"
+                style={{
+                  minWidth: 820
+                }}
+              >
                 <thead>
-                  <tr style={{ background: "#c1502e", color: "#f5f3ee" }}>
-                    <th className="text-left px-3 py-2 font-semibold sticky left-0" style={{ background: "#c1502e", minWidth: 120 }}>เลขที่ Order</th>
-                    {MATERIAL_COLS.map((c) => (
-                      <th key={c.key} className="text-right px-3 py-2 font-semibold" style={{ minWidth: 100 }}>{c.label} ผลลัพธ์</th>
-                    ))}
+                  <tr
+                    style={{
+                      background:
+                        "#c1502e",
+                      color:
+                        "#f5f3ee"
+                    }}
+                  >
+                    <th
+                      className="text-left px-3 py-2 font-semibold sticky left-0"
+                      style={{
+                        background:
+                          "#c1502e",
+                        minWidth:
+                          120
+                      }}
+                    >
+                      เลขที่ Order
+                    </th>
+                    {MATERIAL_COLS.map(
+                      col => (
+                        <th
+                          key={
+                            col.key
+                          }
+                          className="text-right px-3 py-2 font-semibold"
+                          style={{
+                            minWidth:
+                              100
+                          }}
+                        >
+                          {
+                            col.label
+                          }
+                          {" "}
+                          ผลลัพธ์
+                        </th>
+                      )
+                    )}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
-                    <tr key={r.id} style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0", borderTop: "1px solid #e3e0d5" }}>
-                      <td className="px-3 py-1.5 font-mono text-xs sticky left-0" style={{ background: i % 2 === 0 ? "#ffffff" : "#f7f5f0" }}>{r.orderNo || "—"}</td>
-                      {MATERIAL_COLS.map((c) => (
-                        <td key={c.key} className="px-3 py-1.5 text-right font-mono">
-                          {finalResults[i][c.key].toFixed(3)}
+                  {rows.map(
+                    (
+                      row,
+                      index
+                    ) => (
+                      <tr
+                        key={
+                          row.id
+                        }
+                        style={{
+                          background:
+                            index %
+                              2 ===
+                            0
+                              ? "#ffffff"
+                              : "#f7f5f0",
+                          borderTop:
+                            "1px solid #e3e0d5"
+                        }}
+                      >
+                        <td
+                          className="px-3 py-1.5 font-mono text-xs sticky left-0"
+                          style={{
+                            background:
+                              index %
+                                2 ===
+                              0
+                                ? "#ffffff"
+                                : "#f7f5f0"
+                          }}
+                        >
+                          {
+                            row.orderNo ||
+                            "—"
+                          }
                         </td>
-                      ))}
-                    </tr>
-                  ))}
-                  <tr style={{ borderTop: "2px solid #23211d", background: "#f0eee6" }}>
-                    <td className="px-3 py-2 font-bold text-xs uppercase sticky left-0" style={{ background: "#f0eee6", color: "#23211d" }}>รวม / Total</td>
-                    {MATERIAL_COLS.map((c) => (
-                      <td key={c.key} className="px-3 py-2 text-right font-mono font-bold" style={{ color: "#c1502e" }}>{totals[c.key].toFixed(3)}</td>
-                    ))}
+                        {MATERIAL_COLS.map(
+                          col => (
+                            <td
+                              key={
+                                col.key
+                              }
+                              className="px-3 py-1.5 text-right font-mono"
+                            >
+                              {finalResults[
+                                index
+                              ][
+                                col.key
+                              ].toFixed(3)}
+                            </td>
+                          )
+                        )}
+                      </tr>
+                    )
+                  )}
+                  <tr
+                    style={{
+                      borderTop:
+                        "2px solid #23211d",
+                      background:
+                        "#f0eee6"
+                    }}
+                  >
+                    <td
+                      className="px-3 py-2 font-bold text-xs uppercase sticky left-0"
+                      style={{
+                        background:
+                          "#f0eee6",
+                        color:
+                          "#23211d"
+                      }}
+                    >
+                      รวม / Total
+                    </td>
+                    {MATERIAL_COLS.map(
+                      col => (
+                        <td
+                          key={
+                            col.key
+                          }
+                          className="px-3 py-2 text-right font-mono font-bold"
+                          style={{
+                            color:
+                              "#c1502e"
+                          }}
+                        >
+                          {totals[
+                            col.key
+                          ].toFixed(3)}
+                        </td>
+                      )
+                    )}
                   </tr>
                 </tbody>
               </table>
             </div>
-
-            <div className="flex flex-wrap gap-2 items-center">
-              <button onClick={handleSave} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider cursor-pointer" style={{ background: "#23211d", color: "#f5f3ee" }}>
-                <Icon name="save" size={14} />
-                {saveState === "saving" ? "กำลังบันทึก..." : saveState === "saved" ? "บันทึกแล้ว ✓" : "บันทึกข้อมูล"}
+            {/* =================================================
+                ACTIONS
+            ================================================= */}
+            <div className="flex flex-wrap gap-2 items-center pb-10">
+              <button
+                onClick={
+                  handleSave
+                }
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider cursor-pointer"
+                style={{
+                  background:
+                    "#23211d",
+                  color:
+                    "#f5f3ee"
+                }}
+              >
+                <Icon
+                  name="save"
+                  size={14}
+                />
+                {
+                  saveState ===
+                  "saving"
+                    ? "กำลังบันทึก..."
+                    : saveState ===
+                      "saved"
+                    ? "บันทึกแล้ว ✓"
+                    : "บันทึกข้อมูล"
+                }
               </button>
-              <button onClick={handlePrint} className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white" style={{ borderColor: "#23211d", color: "#23211d" }}>
-                <Icon name="printer" size={14} /> พิมพ์ / บันทึก PDF
+              <button
+                onClick={
+                  handlePrint
+                }
+                className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold uppercase tracking-wider border-2 cursor-pointer bg-white hover:bg-gray-50"
+                style={{
+                  borderColor:
+                    "#23211d",
+                  color:
+                    "#23211d"
+                }}
+              >
+                <Icon
+                  name="printer"
+                  size={14}
+                />
+                พิมพ์ / บันทึก PDF
               </button>
+              <div className="ml-auto text-[10px] text-[#a09d92]">
+                Local Storage
+                {" · "}
+                V{APP_VERSION}
+              </div>
             </div>
-
-            {showAdminModal && (
-              <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                <div className="bg-[#fcfbfa] border-2 border-[#23211d] max-w-xl w-full rounded-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-                  
+          </div>
+          {/* ===================================================
+              RESET MODAL
+          =================================================== */}
+          {showResetConfirm && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+              <div className="bg-white border-2 border-[#23211d] max-w-sm w-full rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <Icon
+                      name="rotate-ccw"
+                      size={20}
+                      color="#c1502e"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-[#23211d]">
+                      รีเซ็ตข้อมูล
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Reset Mix Design
+                    </p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  ต้องการรีเซ็ตข้อมูล Mix Design
+                  กลับเป็นค่าเริ่มต้นหรือไม่?
+                  <br />
+                  ข้อมูลที่บันทึกไว้ใน Version 11
+                  จะถูกล้าง
+                </p>
+                <div className="flex gap-2 mt-6">
+                  <button
+                    onClick={() =>
+                      setShowResetConfirm(
+                        false
+                      )
+                    }
+                    className="flex-1 border-2 border-[#23211d] py-2.5 text-xs font-bold cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                  <button
+                    onClick={
+                      resetMixData
+                    }
+                    className="flex-1 bg-[#c1502e] text-white py-2.5 text-xs font-bold cursor-pointer"
+                  >
+                    รีเซ็ตข้อมูล
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* ===================================================
+              ADMIN MODAL
+          =================================================== */}
+          {showAdminModal &&
+            isAdmin && (
+              <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-[#fcfbfa] border-2 border-[#23211d] max-w-2xl w-full rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[92vh] overflow-y-auto modal-scroll">
+                  {/* HEADER */}
                   <div className="flex justify-between items-center mb-5 pb-3 border-b-2 border-[#23211d]">
                     <h3 className="text-base font-black uppercase text-[#23211d] flex items-center gap-2">
-                      <Icon name="shield" size={20} color="#c1502e" /> ระบบจัดการผู้ใช้งาน (SHA-256)
+                      <Icon
+                        name="shield"
+                        size={20}
+                        color="#c1502e"
+                      />
+                      ระบบจัดการผู้ใช้งาน
                     </h3>
-                    <button onClick={() => setShowAdminModal(false)} className="text-[#78766e] hover:text-black font-bold text-lg cursor-pointer">✕</button>
+                    <button
+                      onClick={() =>
+                        setShowAdminModal(
+                          false
+                        )
+                      }
+                      className="text-[#78766e] hover:text-black font-bold text-lg cursor-pointer"
+                    >
+                      ✕
+                    </button>
                   </div>
-
-                  <form onSubmit={handleCreateUser} className="mb-6 p-4 border-2 border-[#d8d5cb] bg-white rounded-xl shadow-xs">
-                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3 text-[#23211d]">➕ สร้างบัญชีผู้ใช้งานใหม่</h4>
+                  {/* CREATE USER */}
+                  <form
+                    onSubmit={
+                      handleCreateUser
+                    }
+                    className="mb-6 p-4 border-2 border-[#d8d5cb] bg-white rounded-xl shadow-xs"
+                  >
+                    <h4 className="text-xs font-bold uppercase tracking-wider mb-3 text-[#23211d]">
+                      ➕ สร้างบัญชีผู้ใช้งานใหม่
+                    </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-3">
                       <input
                         type="text"
                         placeholder="Username"
-                        value={newUsername}
-                        onChange={e => setNewUsername(e.target.value)}
+                        value={
+                          newUsername
+                        }
+                        onChange={e =>
+                          setNewUsername(
+                            e.target
+                              .value
+                          )
+                        }
                         className="border-2 border-[#d8d5cb] px-3 py-2 text-sm rounded focus:outline-none focus:border-[#23211d]"
                         required
                       />
                       <input
                         type="password"
                         placeholder="Password"
-                        value={newPassword}
-                        onChange={e => setNewPassword(e.target.value)}
+                        value={
+                          newPassword
+                        }
+                        onChange={e =>
+                          setNewPassword(
+                            e.target
+                              .value
+                          )
+                        }
                         className="border-2 border-[#d8d5cb] px-3 py-2 text-sm rounded focus:outline-none focus:border-[#23211d]"
                         required
                       />
                       <select
-                        value={newRole}
-                        onChange={e => setNewRole(e.target.value)}
+                        value={
+                          newRole
+                        }
+                        onChange={e =>
+                          setNewRole(
+                            e.target
+                              .value
+                          )
+                        }
                         className="border-2 border-[#d8d5cb] px-3 py-2 text-sm rounded bg-white font-bold"
                       >
-                        <option value="USER">USER</option>
-                        <option value="ADMIN">ADMIN</option>
+                        <option value="USER">
+                          USER
+                        </option>
+                        <option value="ADMIN">
+                          ADMIN
+                        </option>
                       </select>
                     </div>
-                    <button type="submit" className="w-full bg-[#23211d] text-white py-2.5 text-xs font-bold uppercase rounded cursor-pointer hover:bg-black transition">
+                    <button
+                      type="submit"
+                      className="w-full bg-[#23211d] text-white py-2.5 text-xs font-bold uppercase rounded cursor-pointer hover:bg-black transition"
+                    >
                       บันทึกสร้าง User
                     </button>
                   </form>
-
-                  <h4 className="text-xs font-bold uppercase tracking-wider mb-2 text-[#78766e]">📋 รายชื่อผู้ใช้งานในระบบ ({users.length})</h4>
-                  <div className="border-2 border-[#23211d] rounded-xl overflow-hidden bg-white">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#23211d] text-white">
-                        <tr>
-                          <th className="p-3">Username</th>
-                          <th className="p-3">Role</th>
-                          <th className="p-3 text-center">สถานะ</th>
-                          <th className="p-3 text-right">การจัดการ</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {users.map(u => (
-                          <tr key={u.id} className="border-t border-[#e3e0d5]">
-                            <td className="p-3 font-bold font-mono">{u.username}</td>
-                            <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${u.role.toUpperCase() === 'ADMIN' ? 'bg-[#c1502e] text-white' : 'bg-gray-200 text-gray-800'}`}>
-                                {u.role.toUpperCase()}
-                              </span>
-                            </td>
-                            <td className="p-3 text-center">
-                              <button
-                                onClick={() => handleToggleActive(u.id)}
-                                className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition ${u.active ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'bg-red-100 text-red-800 hover:bg-red-200'}`}
-                                title="คลิกเพื่อสลับสถานะ เปิด/ปิด"
-                              >
-                                {u.active ? '🟢 เปิดใช้งาน' : '🔴 ปิดใช้งาน'}
-                              </button>
-                            </td>
-                            <td className="p-3 text-right space-x-1">
-                              <button
-                                onClick={() => handleChangePassword(u.id, u.username)}
-                                className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[11px] font-bold cursor-pointer text-[#23211d]"
-                                title="เปลี่ยนรหัสผ่าน"
-                              >
-                                เปลี่ยนรหัส
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(u.id)}
-                                className="px-2.5 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded text-[11px] font-bold cursor-pointer"
-                                title="ลบบัญชี"
-                              >
-                                ลบ
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  {/* USER LIST */}
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#78766e]">
+                      📋 รายชื่อผู้ใช้งาน
+                      {" "}
+                      ({users.length})
+                    </h4>
+                    <span className="text-[9px] text-gray-400">
+                      V{APP_VERSION}
+                    </span>
                   </div>
-
+                  <div className="border-2 border-[#23211d] rounded-xl overflow-hidden bg-white">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs min-w-[620px]">
+                        <thead className="bg-[#23211d] text-white">
+                          <tr>
+                            <th className="p-3">
+                              Username
+                            </th>
+                            <th className="p-3">
+                              Role
+                            </th>
+                            <th className="p-3 text-center">
+                              สถานะ
+                            </th>
+                            <th className="p-3 text-right">
+                              การจัดการ
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map(
+                            user => (
+                              <tr
+                                key={
+                                  user.id
+                                }
+                                className="border-t border-[#e3e0d5]"
+                              >
+                                <td className="p-3 font-bold font-mono">
+                                  {
+                                    user.username
+                                  }
+                                  {user.id ===
+                                    currentUser.id && (
+                                    <span className="ml-2 text-[9px] text-[#c1502e]">
+                                      YOU
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="p-3">
+                                  <span
+                                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      user.role.toUpperCase() ===
+                                      "ADMIN"
+                                        ? "bg-[#c1502e] text-white"
+                                        : "bg-gray-200 text-gray-800"
+                                    }`}
+                                  >
+                                    {
+                                      user.role.toUpperCase()
+                                    }
+                                  </span>
+                                </td>
+                                <td className="p-3 text-center">
+                                  <button
+                                    onClick={() =>
+                                      handleToggleActive(
+                                        user.id
+                                      )
+                                    }
+                                    className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition ${
+                                      user.active
+                                        ? "bg-green-100 text-green-800 hover:bg-green-200"
+                                        : "bg-red-100 text-red-800 hover:bg-red-200"
+                                    }`}
+                                    title="คลิกเพื่อสลับสถานะ"
+                                  >
+                                    {user.active
+                                      ? "🟢 เปิดใช้งาน"
+                                      : "🔴 ปิดใช้งาน"}
+                                  </button>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <div className="flex justify-end gap-1 flex-wrap">
+                                    <button
+                                      onClick={() =>
+                                        handleChangePassword(
+                                          user.id,
+                                          user.username
+                                        )
+                                      }
+                                      className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded text-[11px] font-bold cursor-pointer text-[#23211d]"
+                                    >
+                                      เปลี่ยนรหัส
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleDeleteUser(
+                                          user.id
+                                        )
+                                      }
+                                      className="px-2.5 py-1 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded text-[11px] font-bold cursor-pointer"
+                                    >
+                                      ลบ
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  {/* SECURITY NOTE */}
+                  <div className="mt-4 p-3 rounded-xl bg-[#f5f3ee] border border-[#e3e0d5]">
+                    <div className="flex items-start gap-2">
+                      <Icon
+                        name="info"
+                        size={15}
+                        color="#c1502e"
+                      />
+                      <div className="text-[10px] leading-relaxed text-[#78766e]">
+                        Password ถูกเก็บเป็น
+                        SHA-256 hash ใน
+                        Local Storage
+                        ของ browser
+                        <br />
+                        ระบบนี้เป็นระบบ
+                        Client-side
+                        สำหรับใช้งานภายใน
+                        หากต้องการระบบ
+                        Authentication
+                        แบบ production
+                        ควรเชื่อมต่อ
+                        Backend / Database
+                      </div>
+                    </div>
+                  </div>
+                  {/* CLOSE */}
                   <div className="mt-6 text-right">
                     <button
-                      onClick={() => setShowAdminModal(false)}
+                      onClick={() =>
+                        setShowAdminModal(
+                          false
+                        )
+                      }
                       className="px-5 py-2.5 bg-[#23211d] text-white text-xs font-bold uppercase rounded cursor-pointer hover:bg-black"
                     >
                       ปิดหน้าต่าง
                     </button>
                   </div>
-
                 </div>
               </div>
             )}
-
-          </div>
         </div>
       );
     }
-
-    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+    /* =========================================================
+       RENDER
+    ========================================================= */
+    ReactDOM
+      .createRoot(
+        document.getElementById(
+          "root"
+        )
+      )
+      .render(
+        <App />
+      );
   </script>
 </body>
 </html>
