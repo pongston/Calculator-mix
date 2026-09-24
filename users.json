@@ -2,7 +2,7 @@
   {
     "id": 1,
     "username": "admin",
-    "passwordHash": "45195dc0113ef93e6f3627c713b2cf05ece2b272e892daf9f7d9cd0a4fde501e",
+    "passwordHash": "03c5a0eafaf91a8be171102f874b12d66049dc27b69962cf53ab3ce5242f344b",
     "role": "ADMIN",
     "active": true
   },
