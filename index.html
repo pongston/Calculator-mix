@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#121212">
-  <title>Mix Design - Korat Batching Plant V11.1</title>
+  <title>Mix Design - Korat Batching Plant V11.2</title>
   <!-- React -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -15,75 +15,26 @@
   <!-- Lucide -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
-    }
-    body {
-      background: #efece2;
-      -webkit-tap-highlight-color: transparent;
-      font-family: Arial, Helvetica, sans-serif;
-    }
-    input[type=number]::-webkit-inner-spin-button,
-    input[type=number]::-webkit-outer-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-    button,
-    input,
-    select {
-      font-family: inherit;
-    }
-    ::selection {
-      background: #c1502e;
-      color: white;
-    }
-    .shadow-xs {
-      box-shadow: 0 1px 2px rgba(0,0,0,.05);
-    }
-    .login-bg {
-      background:
-        radial-gradient(circle at 20% 20%, rgba(193,80,46,.12), transparent 30%),
-        radial-gradient(circle at 80% 80%, rgba(255,255,255,.05), transparent 35%),
-        #121212;
-    }
-    .login-card {
-      box-shadow:
-        0 30px 80px rgba(0,0,0,.45),
-        inset 0 1px 0 rgba(255,255,255,.06);
-    }
-    .table-input:focus {
-      outline: none;
-      background: rgba(193,80,46,.06);
-    }
-    .modal-scroll {
-      scrollbar-width: thin;
-    }
-    @media print {
-      body {
-        background: white !important;
-      }
-      .no-print {
-        display: none !important;
-      }
-    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; min-height: 100%; }
+    body { background: #efece2; -webkit-tap-highlight-color: transparent; font-family: Arial, Helvetica, sans-serif; }
+    input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    button, input, select { font-family: inherit; }
+    ::selection { background: #c1502e; color: white; }
+    .shadow-xs { box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+    .login-bg { background: radial-gradient(circle at 20% 20%, rgba(193,80,46,.12), transparent 30%), radial-gradient(circle at 80% 80%, rgba(255,255,255,.05), transparent 35%), #121212; }
+    .login-card { box-shadow: 0 30px 80px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06); }
+    .table-input:focus { outline: none; background: rgba(193,80,46,.06); }
+    .modal-scroll { scrollbar-width: thin; }
+    @media print { body { background: white !important; } .no-print { display: none !important; } }
   </style>
 </head>
 <body>
   <div id="root"></div>
   <script type="text/babel">
-    const {
-      useState,
-      useMemo,
-      useEffect
-    } = React;
+    const { useState, useMemo, useEffect } = React;
 
-    const APP_VERSION = "11.1";
+    const APP_VERSION = "11.2";
     const MATERIAL_COLS = [
       { key: "cement", label: "Cement" },
       { key: "rock", label: "Rock" },
@@ -101,9 +52,8 @@
       C: { label: "C", short: "-5%", desc: "ลดทุกอย่างลง 5% (ยกเว้นน้ำ)", reduce: 0.05 }
     };
 
-    const STORAGE_KEY = "korat_mix_design_data_v11_1";
-    const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v11_1";
-    const LEGACY_USERS_KEY = "korat_mix_design_users_secure_v11";
+    const STORAGE_KEY = "korat_mix_design_data_v11_2";
+    const USERS_STORAGE_KEY = "korat_mix_design_users_secure_v11_2";
 
     const DEFAULT_ACCOUNTS = [
       { id: 1, username: "admin", rawPass: "Ppb", role: "ADMIN", active: true },
@@ -182,28 +132,12 @@
       useEffect(() => {
         async function initializeUsers() {
           try {
-            let saved = localStorage.getItem(USERS_STORAGE_KEY);
-            if (!saved) {
-              saved = localStorage.getItem(LEGACY_USERS_KEY);
-            }
-            if (saved) {
-              const parsed = JSON.parse(saved);
-              if (Array.isArray(parsed) && parsed.length) {
-                setUsers(parsed);
-              } else {
-                const defaults = await buildDefaultUsers();
-                setUsers(defaults);
-                localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaults));
-              }
-            } else {
-              const defaults = await buildDefaultUsers();
-              setUsers(defaults);
-              localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaults));
-            }
+            const defaults = await buildDefaultUsers();
+            // บังคับใช้ค่าเริ่มต้นเสมอ เพื่อแก้ปัญหา Hash ไม่ตรงกับเครื่องผู้ใช้
+            setUsers(defaults);
+            localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(defaults));
           } catch (error) {
             console.error("User init error:", error);
-            const defaults = await buildDefaultUsers();
-            setUsers(defaults);
           }
           setIsInitialized(true);
         }
@@ -223,7 +157,7 @@
         return (
           <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center text-white">
             <Icon name="layers" size={34} color="#c1502e" />
-            <div className="mt-4 text-sm font-bold">Loading System V11.1...</div>
+            <div className="mt-4 text-sm font-bold">Loading System V11.2...</div>
           </div>
         );
       }
@@ -280,7 +214,7 @@
       return (
         <div className="login-bg min-h-screen flex flex-col items-center justify-center w-full p-4 relative overflow-hidden">
           <div className="absolute top-8 left-8 text-[10px] text-white/20 tracking-[0.3em]">KORAT BATCHING PLANT</div>
-          <div className="absolute bottom-8 right-8 text-[10px] text-white/20 tracking-[0.3em]">MIX DESIGN SYSTEM V11.1</div>
+          <div className="absolute bottom-8 right-8 text-[10px] text-white/20 tracking-[0.3em]">MIX DESIGN SYSTEM V11.2</div>
           <div className="login-card relative z-10 w-full max-w-sm rounded-3xl bg-gradient-to-br from-[#ffffff12] to-[#ffffff03] backdrop-blur-xl p-8 flex flex-col items-center border border-white/10">
             <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-[#c1502e] mb-6 shadow-lg shadow-black/30 text-white">
               <Icon name="layers" size={30} />
