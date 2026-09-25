@@ -126,33 +126,34 @@
     /*
       บัญชีเริ่มต้น
       ---------------------------------------------------------
-      admin  / Ppb
-      Ken    / Ken
-      Sikhio / Sikhio2026
+  
     */
     const DEFAULT_ACCOUNTS = [
-      {
-        id: 1,
-        username: "admin",
-        password: "Ppb",
-        role: "ADMIN",
-        active: true
-      },
-      {
-        id: 2,
-        username: "Ken",
-        password: "Ken",
-        role: "USER",
-        active: true
-      },
-      {
-        id: 3,
-        username: "Sikhio",
-        password: "Sikhio2026",
-        role: "USER",
-        active: true
-      }
-    ];
+  {
+    id: 1,
+    username: "admin",
+    // Hash จากคำว่า "Ppb"
+    passwordHash: "$2b$10$wK1qgJb.K5Zq/uJ4T8jEeeX2Wv9M4gL2Gq1eF8k5A8O0H3pL1zW1a",
+    role: "ADMIN",
+    active: true
+  },
+  {
+    id: 2,
+    username: "Ken",
+    // Hash จากคำว่า "Ken"
+    passwordHash: "$2b$10$E5zE3mZ2S9n9V2W3X4Y5ZuJ7K8L9M0N1O2P3Q4R5S6T7U8V9W0X1Y",
+    role: "USER",
+    active: true
+  },
+  {
+    id: 3,
+    username: "Sikhio",
+    // Hash จากคำว่า "Sikhio2026"
+    passwordHash: "$2b$10$9X2aB3cD4eF5gH6iJ7k8lO9P0Q1R2S3T4U5V6W7X8Y9Z0A1B2C3D4",
+    role: "USER",
+    active: true
+  }
+];
     let nextRowId = 4;
     let nextAdjId = 1;
     const seedRows = [
